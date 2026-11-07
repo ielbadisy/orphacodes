@@ -29,3 +29,12 @@ test_that("orphasave and orphaload round trip", {
   db <- orphaload(f, use = FALSE)
   expect_equal(nrow(db$disorders), nrow(orphamini$disorders))
 })
+
+test_that("orphadiff renamed table has old and new names", {
+  d2 <- orphamini
+  i <- which(d2$disorders$active)[3]
+  d2$disorders$name[i] <- paste(d2$disorders$name[i], "(renamed)")
+  d <- orphadiff(orphamini, d2)
+  expect_equal(names(d$renamed), c("orphacode", "name_new", "name_old"))
+  expect_equal(nrow(d$renamed), 1L)
+})

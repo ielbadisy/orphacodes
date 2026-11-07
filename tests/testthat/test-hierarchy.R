@@ -1,6 +1,7 @@
 test_that("hierarchy navigation is consistent", {
   p <- orphaparents("324", db = orphamini)
-  expect_true(all(p$classification_id == "146"))
+  expect_setequal(unique(p$classification_id), c("146", "150", "181"))
+  expect_true(all(orphaparents("324", db = orphamini, classification = "146")$classification_id == "146"))
   a <- orphaancestors("324", db = orphamini)
   expect_true("97929" %in% a$related)
   expect_true(all(p$related %in% a$related[a$depth == 1]))
@@ -15,5 +16,7 @@ test_that("orphagroup rolls up at each level", {
   g <- orphagroup("324", db = orphamini, level = "specialty")
   expect_equal(g$group, "68367")
   g <- orphagroup(c("324", "558"), db = orphamini, level = "classification")
-  expect_equal(g$group[g$orphacode == "324"], "97929")
+  expect_true("97929" %in% g$group[g$orphacode == "324"])
+  g <- orphagroup("324", db = orphamini, level = "classification", classification = "146")
+  expect_equal(g$group, "97929")
 })

@@ -32,3 +32,19 @@ test_that("orphastandardize matches exact, synonym and fuzzy tiers", {
   r2 <- orphastandardize(reg, disease = "dx", db = orphamini, fuzzy = FALSE)
   expect_true(is.na(r2$orphacode[3]))
 })
+
+test_that("fuzzy matching handles word order, French names and short names", {
+  reg <- data.frame(dx = c("Fabri desease", "Disease, Fabry", "Maladie de Fabry",
+                           "syndrome de Dubowitz", "Dubowitz syndrom", "Flu"))
+  r <- orphastandardize(reg, disease = "dx", db = orphamini)
+  expect_equal(r$orphacode[1:5], c("324", "324", "324", "235", "235"))
+  expect_equal(r$orphacode_match[6], "none")
+  # a short word never fuzzy-matches
+  r <- orphastandardize(data.frame(dx = "Fabr"), disease = "dx", db = orphamini)
+  expect_equal(r$orphacode_match, "none")
+})
+
+test_that("subset hint is given once for unknown codes", {
+  withr::local_options(rlib_message_verbosity = "verbose")
+  expect_message(orphalookup("99999999", db = orphamini), "bundled subset")
+})
