@@ -25,20 +25,42 @@ readxml <- function(path) {
   xml2::read_xml(path, options = c("NOBLANKS", "HUGE"))
 }
 
-statusfromflag <- function(flag, total) {
-  flag <- suppressWarnings(as.integer(flag))
-  out <- ifelse(!is.na(total) & nzchar(total), total, NA_character_)
+# Orphanet identifiers are language independent; the labels are not.
+# Status, level, type and relation are therefore decoded from FlagValue and
+# element ids into canonical English labels, whatever the language of the
+# file, so that every function behaves identically across languages.
+statusfromflag <- function(flag) {
+  f <- suppressWarnings(as.integer(flag))
+  ifelse(is.na(f) | f %in% c(1L, 129L), "Active",
+  ifelse(f == 513L, "Active: Historic",
+  ifelse(bitwAnd(f, 256L) > 0L, "Inactive: Deprecated",
+  ifelse(bitwAnd(f, 32L) > 0L, "Inactive: Non rare disease in Europe",
+  ifelse(bitwAnd(f, 16L) > 0L | bitwAnd(f, 1024L) > 0L, "Inactive: Obsolete",
+  ifelse(bitwAnd(f, 8192L) > 0L, "Inactive", "Active"))))))
+}
+
+orphaids <- list(
+  level = c("36540" = "Group of disorders", "36547" = "Disorder", "36554" = "Subtype of disorder"),
+  type = c("21394" = "Disease", "21401" = "Malformation syndrome", "21450" = "Clinical subtype",
+           "21436" = "Clinical group", "36561" = "Category",
+           "21429" = "Particular clinical situation in a disease or syndrome",
+           "21415" = "Morphological anomaly", "21443" = "Etiological subtype",
+           "21408" = "Biological anomaly", "21422" = "Clinical syndrome",
+           "21457" = "Histopathological subtype"),
+  association = c("21471" = "Moved to", "27341" = "Referred to", "21485" = "Preferential parent"),
+  relation = c("21527" = "E", "21534" = "NTBT", "21541" = "BTNT", "21576" = "ND"),
+  icd = c("21604" = "Attributed code", "21590" = "Inclusion term", "21597" = "Index term",
+          "21583" = "Specific code"),
+  validation = c("21611" = "Validated", "21618" = "Not yet validated")
+)
+
+# Decode an id into its canonical label, falling back to the localised
+# label when the id is unknown.
+decode <- function(nodes, xpath, table, label_xpath = paste0(xpath, "/Name")) {
+  id <- xml2::xml_attr(xml2::xml_find_first(nodes, xpath), "id")
+  out <- unname(table[id])
   miss <- is.na(out)
-  if (any(miss)) {
-    f <- flag[miss]
-    out[miss] <- ifelse(
-      f %in% c(1L, 129L), "Active",
-      ifelse(f %in% c(513L), "Active: Historic",
-      ifelse(bitwAnd(f, 256L) > 0L, "Inactive: Deprecated",
-      ifelse(bitwAnd(f, 32L) > 0L, "Inactive: Non rare disease in Europe",
-      ifelse(bitwAnd(f, 16L) > 0L | bitwAnd(f, 1024L) > 0L, "Inactive: Obsolete",
-      ifelse(bitwAnd(f, 8192L) > 0L, "Inactive", "Active"))))))
-  }
+  if (any(miss)) out[miss] <- t1(nodes, label_xpath)[miss]
   out
 }
 
@@ -58,16 +80,14 @@ parsenomenclature <- function(path) {
     flag <- unname(fsum[code])
     flag[is.na(flag)] <- 1L
   }
-  total <- t1(d, "Totalstatus")
-  total <- sub("^Active: Historic.*$", "Active: Historic", total)
-  level <- t1(d, "ClassificationLevel/Name")
-  if (all(is.na(level))) level <- t1(d, "DisorderGroup/Name")
+  level <- decode(d, "ClassificationLevel", orphaids$level)
+  if (all(is.na(level))) level <- decode(d, "DisorderGroup", orphaids$level)
   disorders <- data.frame(
     orphacode = code,
     name = t1(d, "Name"),
-    status = statusfromflag(flag, total),
+    status = statusfromflag(flag),
     flag = suppressWarnings(as.integer(flag)),
-    type = t1(d, "DisorderType/Name"),
+    type = decode(d, "DisorderType", orphaids$type),
     level = level,
     definition = t1(d, "SummaryInformationList/SummaryInformation/TextSectionList/TextSection[TextSectionType/Name='Definition']/Contents"),
     note = t1(d, "SummaryInformationList/SummaryInformation/TextAuto/Info"),
@@ -92,7 +112,7 @@ parsenomenclature <- function(path) {
     orphacode = t1(a, "../../OrphaCode"),
     target = t1(a, "TargetDisorder/OrphaCode"),
     target_name = t1(a, "TargetDisorder/Name"),
-    relation = t1(a, "DisorderDisorderAssociationType/Name"),
+    relation = decode(a, "DisorderDisorderAssociationType", orphaids$association),
     stringsAsFactors = FALSE
   )
   # The association is listed on both sides; keep the inactive side only,
@@ -122,10 +142,10 @@ parsexrefs <- function(path) {
     orphacode = t1(e, "../../OrphaCode"),
     source = t1(e, "Source"),
     code = t1(e, "Reference"),
-    relation = sub("^([A-Z]+) .*$", "\\1", rel),
+    relation = sub("^([A-Z]+) .*$", "\\1", decode(e, "DisorderMappingRelation", orphaids$relation)),
     relation_label = rel,
-    icd_relation = sub(" \\(.*$", "", t1(e, "DisorderMappingICDRelation/Name")),
-    validation = t1(e, "DisorderMappingValidationStatus/Name"),
+    icd_relation = decode(e, "DisorderMappingICDRelation", orphaids$icd),
+    validation = decode(e, "DisorderMappingValidationStatus", orphaids$validation),
     url = t1(e, "DisorderMappingICDRefUrl"),
     stringsAsFactors = FALSE
   )
@@ -168,7 +188,7 @@ parseclassification <- function(path) {
 parselinearisation <- function(path) {
   doc <- readxml(path)
   meta <- xmlmeta(doc)
-  a <- xml2::xml_find_all(doc, "/JDBOR/DisorderList/Disorder/DisorderDisorderAssociationList/DisorderDisorderAssociation[DisorderDisorderAssociationType/Name='Preferential parent']")
+  a <- xml2::xml_find_all(doc, "/JDBOR/DisorderList/Disorder/DisorderDisorderAssociationList/DisorderDisorderAssociation[DisorderDisorderAssociationType/@id='21485' or DisorderDisorderAssociationType/Name='Preferential parent']")
   out <- data.frame(
     orphacode = t1(a, "../../OrphaCode"),
     preferential_parent = t1(a, "TargetDisorder/OrphaCode"),
