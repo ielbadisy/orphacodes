@@ -9,7 +9,8 @@ set.seed(20261106)
 d <- orphamini$disorders
 act <- d[d$active & d$level == "Disorder" & d$orphacode %in% orphamini$edges$child, ]
 n <- 120
-pick_codes <- sample(act$orphacode, n, replace = TRUE, prob = 1 / rank(-nchar(act$name)))
+# favour short, common-looking names, as real registries do
+pick_codes <- sample(act$orphacode, n, replace = TRUE, prob = 1 / rank(nchar(act$name))^0.5)
 code <- pick_codes
 name <- d$name[match(code, d$orphacode)]
 

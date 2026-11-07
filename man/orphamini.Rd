@@ -14,7 +14,10 @@ Orphanet, \url{https://www.orphadata.com}, CC-BY-4.0.
 orphamini
 }
 \description{
-An \link{orphadb} restricted to the Orphanet classification of rare cardiac
+An \link{orphadb} restricted to three Orphanet classifications (rare cardiac
+diseases, rare neurological diseases, rare inborn errors of metabolism)
+and a few example entities; functions mention once when a code falls
+outside this subset. It was formerly restricted to rare cardiac
 diseases (classification 146) plus a few entities used in examples
 (Fabry disease, Marfan syndrome, a deprecated pontocerebellar hypoplasia
 code and the top of the neurological classification). Built from the

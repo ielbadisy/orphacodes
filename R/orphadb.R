@@ -213,3 +213,13 @@ orphacite <- function(db = NULL) {
                        db$meta$version %||% "unknown", ").")
   )
 }
+
+# Tell the user once per call when codes fall outside the bundled subset.
+subsethint <- function(db, unknown) {
+  if (!is.null(db$meta$subset) && any(unknown, na.rm = TRUE)) {
+    cli::cli_inform(c("i" = "{sum(unknown, na.rm = TRUE)} code{?s} not in the bundled subset ({db$meta$subset}).",
+                      " " = "Call {.fn orphafetch} for the full nomenclature."), .frequency = "once",
+                    .frequency_id = "orphacodes_subset_hint")
+  }
+  invisible(NULL)
+}
