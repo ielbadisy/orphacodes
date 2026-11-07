@@ -65,31 +65,35 @@ aggregation:
 
 ``` r
 qc <- orphaqc(orphademo, code = "diagnosis_code", id = "patient_id")
+#> ℹ 1 code not in the bundled subset (classifications 146 (cardiac), 181
+#>   (neurological) and 150 (inborn errors of metabolism)).
+#>   Call `orphafetch()` for the full nomenclature.
+#> This message is displayed once per session.
 attr(qc, "summary")
 #> # basetable: 7 x 3
 #>            issue  n  pct
-#> 1             ok 90 75.0
+#> 1             ok 89 74.2
 #> 2        missing 12 10.0
 #> 3     deprecated  8  6.7
 #> 4     group_code  6  5.0
-#> 5 invalid_format  2  1.7
-#> 6   duplicate_id  1  0.8
+#> 5   duplicate_id  2  1.7
+#> 6 invalid_format  2  1.7
 #> 7        unknown  1  0.8
 h <- orphaharmonize(orphademo, code = "diagnosis_code", disease = "diagnosis")
 orphaaggregate(h, code = "orphacode", level = "specialty")
-#> # basetable: 13 x 3
+#> # basetable: 11 x 3
 #>     group                                     group_name  n
-#> 1   68367                Rare inborn error of metabolism 47
-#> 2   98006                        Rare neurologic disease 25
-#> 3   97929                           Rare cardiac disease 17
+#> 1   98006                        Rare neurologic disease 39
+#> 2   93890 Rare developmental defect during embryogenesis 32
+#> 3   68367                Rare inborn error of metabolism 23
 #> 4    <NA>                                           <NA>  8
-#> 5   93890 Rare developmental defect during embryogenesis  7
-#> 6  250908                        Rare neoplastic disease  3
-#> 7   98004                            Rare immune disease  3
-#> 8   98023         Rare systemic or rheumatologic disease  3
-#> 9   97992                       Rare hematologic disease  2
-#> 10  98036              Rare otorhinolaryngologic disease  2
-#> # 3 more rows
+#> 5  250908                        Rare neoplastic disease  3
+#> 6   68416                        Rare infectious disease  3
+#> 7   89826                              Rare skin disease  3
+#> 8   97978                         Rare endocrine disease  3
+#> 9   93419                              Rare bone disease  2
+#> 10  97929                           Rare cardiac disease  2
+#> # 1 more rows
 ```
 
 ## Data source

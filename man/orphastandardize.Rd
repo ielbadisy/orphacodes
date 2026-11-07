@@ -11,6 +11,7 @@ orphastandardize(
   db = NULL,
   fuzzy = TRUE,
   max_distance = 0.2,
+  min_nchar = 5L,
   active_only = TRUE,
   level = NULL
 )
@@ -30,6 +31,8 @@ are added: \verb{<output>_name}, \verb{<output>_match} and \verb{<output>_score}
 \item{max_distance}{Maximum relative edit distance (0 to 1) accepted for a
 fuzzy match.}
 
+\item{min_nchar}{Shortest normalised name eligible for fuzzy matching.}
+
 \item{active_only}{Logical; match only active entities.}
 
 \item{level}{Optional classification level restriction, for example
@@ -44,12 +47,17 @@ fuzzy match.}
 \description{
 Adds ORPHAcodes to a data frame from a column of disease names. Each
 name is matched, in order, on the preferred term, on a synonym, and
-(optionally) approximately by edit distance restricted to entities
-sharing at least one informative word. Ties at the same tier are reported
-as ambiguous rather than resolved silently.
+(optionally) approximately. The approximate tier compares names after
+normalisation (case, accents, punctuation) both as written and as a
+sorted bag of informative words, so that word order and filler words
+("syndrome", "disease", "de", "maladie") do not matter; candidates must
+share at least one informative word or word stem with the query, and
+names shorter than \code{min_nchar} characters are never fuzzy-matched. Ties
+at the same tier are reported as ambiguous rather than resolved
+silently.
 }
 \examples{
-reg <- data.frame(id = 1:4,
-  dx = c("Fabry disease", "Anderson-Fabry disease", "Fabri desease", "Flu"))
+reg <- data.frame(id = 1:5, dx = c("Fabry disease", "Anderson-Fabry disease",
+  "Fabri desease", "syndrome de Marfan", "Flu"))
 orphastandardize(reg, disease = "dx", db = orphamini)
 }
