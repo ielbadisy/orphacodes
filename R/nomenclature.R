@@ -40,6 +40,7 @@ orphalookup <- function(codes, db = NULL, definition = FALSE) {
     stringsAsFactors = FALSE
   )
   out$n_synonyms[out$found & is.na(out$n_synonyms)] <- 0L
+  subsethint(db, !out$found & !is.na(code))
   if (isTRUE(definition)) out$definition <- d$definition[i]
   ascdf(out)
 }
@@ -126,6 +127,7 @@ orphavalidate <- function(codes, db = NULL) {
            ifelse(grepl("Non rare", status), "non_rare", "obsolete"))))))
   r <- db$redirects
   j <- match(code, r$orphacode)
+  subsethint(db, issue == "unknown")
   ascdf(data.frame(
     input = as.character(codes),
     orphacode = code,
@@ -155,20 +157,56 @@ matchdict <- function(db, active_only = TRUE) {
   dict
 }
 
-# Fuzzy matching by relative edit distance against the whole dictionary
-# (basetable::textdist is vectorised in C++). Returns, per key, the index
-# of the best entry, its similarity and the number of distinct entities
-# tied at the best distance.
-fuzzymatch <- function(keys, dict, max_distance) {
-  n <- nchar(dict$key)
+# Words that carry no identity for matching (English and French).
+stopwords <- c("syndrome", "disease", "disorder", "type", "of", "the", "and",
+               "with", "or", "due", "to", "in", "a", "an", "familial",
+               "congenital", "rare", "hereditary", "form", "forme",
+               "maladie", "de", "du", "des", "la", "le", "les", "et", "ou",
+               "par", "au", "aux", "d", "l", "syndromique", "familiale",
+               "congenitale", "hereditaire")
+
+# Sorted informative tokens of a normalised key: makes the comparison
+# independent of word order ("syndrome de marfan" ~ "marfan syndrome").
+sortkey <- function(key) {
+  tok <- strsplit(key, " ", fixed = TRUE)
+  vapply(tok, function(t) {
+    t <- setdiff(t, stopwords)
+    paste(sort(unique(t)), collapse = " ")
+  }, character(1))
+}
+
+# Fuzzy matching: for each key, the relative edit distance to every
+# dictionary entry is the minimum over the raw key and the sorted-token
+# key (basetable::textdist, vectorised in C++). Candidates must share at
+# least one informative token with the query (or a 4-letter prefix of
+# one), and short queries are not fuzzy-matched at all. Returns, per key,
+# the index of the best entry, its similarity and the number of distinct
+# entities tied at the best distance.
+fuzzymatch <- function(keys, dict, max_distance, min_nchar = 5L) {
+  if (is.null(dict$skey)) dict$skey <- sortkey(dict$key)
+  n1 <- nchar(dict$key); n2 <- nchar(dict$skey)
+  toks <- strsplit(dict$skey, " ", fixed = TRUE)
+  idx <- rep(seq_along(toks), lengths(toks))
+  alltok <- unlist(toks)
+  bytok <- split(idx, alltok)
+  bypre <- split(idx, substr(alltok, 1, 4))
   res <- lapply(keys, function(k) {
-    dist <- basetable::textdist(k, dict$key)[1, ]
-    rel <- dist / pmax(nchar(k), n)
+    none <- c(NA_integer_, NA_real_, 0L)
+    sk <- sortkey(k)
+    if (nchar(k) < min_nchar || !nzchar(sk)) return(none)
+    qt <- strsplit(sk, " ", fixed = TRUE)[[1]]
+    cand <- unique(c(unlist(bytok[qt], use.names = FALSE),
+                     unlist(bypre[substr(qt, 1, 4)], use.names = FALSE)))
+    if (!length(cand)) return(none)
+    d1 <- basetable::textdist(k, dict$key[cand])[1, ] / pmax(nchar(k), n1[cand])
+    d2 <- basetable::textdist(sk, dict$skey[cand])[1, ] / pmax(nchar(sk), n2[cand])
+    rel <- pmin(d1, d2)
     ok <- which(rel <= max_distance)
-    if (!length(ok)) return(c(NA_integer_, NA_real_, 0L))
-    best <- ok[order(rel[ok], dict$field[ok] != "name")]
-    ncand <- length(unique(dict$orphacode[ok[rel[ok] == rel[best[1]]]]))
-    c(best[1], 1 - rel[best[1]], ncand)
+    if (!length(ok)) return(none)
+    best <- ok[order(rel[ok], dict$field[cand][ok] != "name", n1[cand][ok])]
+    ties <- ok[rel[ok] == rel[best[1]]]
+    ncand <- length(unique(dict$orphacode[cand][ties]))
+    c(cand[best[1]], 1 - rel[best[1]], ncand)
   })
   do.call(rbind, res)
 }
@@ -177,9 +215,14 @@ fuzzymatch <- function(keys, dict, max_distance) {
 #'
 #' Adds ORPHAcodes to a data frame from a column of disease names. Each
 #' name is matched, in order, on the preferred term, on a synonym, and
-#' (optionally) approximately by edit distance restricted to entities
-#' sharing at least one informative word. Ties at the same tier are reported
-#' as ambiguous rather than resolved silently.
+#' (optionally) approximately. The approximate tier compares names after
+#' normalisation (case, accents, punctuation) both as written and as a
+#' sorted bag of informative words, so that word order and filler words
+#' ("syndrome", "disease", "de", "maladie") do not matter; candidates must
+#' share at least one informative word or word stem with the query, and
+#' names shorter than `min_nchar` characters are never fuzzy-matched. Ties
+#' at the same tier are reported as ambiguous rather than resolved
+#' silently.
 #'
 #' @param data A data frame.
 #' @param disease Name of the column holding disease names.
@@ -189,6 +232,7 @@ fuzzymatch <- function(keys, dict, max_distance) {
 #' @param fuzzy Logical; enable approximate matching.
 #' @param max_distance Maximum relative edit distance (0 to 1) accepted for a
 #'   fuzzy match.
+#' @param min_nchar Shortest normalised name eligible for fuzzy matching.
 #' @param active_only Logical; match only active entities.
 #' @param level Optional classification level restriction, for example
 #'   `"Disorder"` to refuse group-level matches.
@@ -199,11 +243,11 @@ fuzzymatch <- function(keys, dict, max_distance) {
 #'   (1 minus relative distance) for fuzzy ones.
 #' @export
 #' @examples
-#' reg <- data.frame(id = 1:4,
-#'   dx = c("Fabry disease", "Anderson-Fabry disease", "Fabri desease", "Flu"))
+#' reg <- data.frame(id = 1:5, dx = c("Fabry disease", "Anderson-Fabry disease",
+#'   "Fabri desease", "syndrome de Marfan", "Flu"))
 #' orphastandardize(reg, disease = "dx", db = orphamini)
 orphastandardize <- function(data, disease, output = "orphacode", db = NULL,
-                             fuzzy = TRUE, max_distance = 0.2,
+                             fuzzy = TRUE, max_distance = 0.2, min_nchar = 5L,
                              active_only = TRUE, level = NULL) {
   assertdf(data)
   assertcol(data, disease, "disease")
@@ -238,7 +282,7 @@ orphastandardize <- function(data, disease, output = "orphacode", db = NULL,
   }
   if (isTRUE(fuzzy) && any(res$match == "none")) {
     todo <- which(res$match == "none")
-    fm <- fuzzymatch(res$key[todo], dict, max_distance)
+    fm <- fuzzymatch(res$key[todo], dict, max_distance, min_nchar)
     ok <- !is.na(fm[, 1])
     res$orphacode[todo[ok]] <- dict$orphacode[fm[ok, 1]]
     res$term[todo[ok]] <- dict$term[fm[ok, 1]]
@@ -281,7 +325,8 @@ edgesfor <- function(db, classification = NULL) {
 #' @param codes ORPHAcodes.
 #' @param db An [orphadb]; defaults to the registered database.
 #' @param classification Optional classification id (for example `"181"`) or
-#'   name fragment (`"neurolog"`) restricting the hierarchy.
+#'   name fragment (`"neurolog"`) restricting the hierarchy. For
+#'   `orphagroup()` it only applies to `level = "classification"`.
 #' @param level For `orphagroup()`: `"disorder"` (aggregation level),
 #'   `"specialty"` (preferential parent) or `"classification"` (every
 #'   classification root, one row per membership).
@@ -377,7 +422,8 @@ orphadescendants <- function(codes, db = NULL, classification = NULL) {
 
 #' @rdname orphaparents
 #' @export
-orphagroup <- function(codes, db = NULL, level = c("disorder", "specialty", "classification")) {
+orphagroup <- function(codes, db = NULL, level = c("disorder", "specialty", "classification"),
+                       classification = NULL) {
   db <- getdb(db)
   level <- match.arg(level)
   code <- orphacode(codes)
@@ -395,8 +441,9 @@ orphagroup <- function(codes, db = NULL, level = c("disorder", "specialty", "cla
                       group_name = d$preferential_parent_name[i], level = level,
                       stringsAsFactors = FALSE)
   } else {
-    anc <- orphaancestors(code, db = db)
+    anc <- orphaancestors(code, db = db, classification = classification)
     cl <- db$classifications
+    if (!is.null(classification)) cl <- cl[cl$classification_id %in% unique(edgesfor(db, classification)$classification_id), , drop = FALSE]
     roots <- anc[anc$related %in% cl$root, , drop = FALSE]
     self <- data.frame(orphacode = code[code %in% cl$root], related = code[code %in% cl$root],
                        stringsAsFactors = FALSE)

@@ -19,7 +19,8 @@ orphadescendants(codes, db = NULL, classification = NULL)
 orphagroup(
   codes,
   db = NULL,
-  level = c("disorder", "specialty", "classification")
+  level = c("disorder", "specialty", "classification"),
+  classification = NULL
 )
 }
 \arguments{
@@ -28,7 +29,8 @@ orphagroup(
 \item{db}{An \link{orphadb}; defaults to the registered database.}
 
 \item{classification}{Optional classification id (for example \code{"181"}) or
-name fragment (\code{"neurolog"}) restricting the hierarchy.}
+name fragment (\code{"neurolog"}) restricting the hierarchy. For
+\code{orphagroup()} it only applies to \code{level = "classification"}.}
 
 \item{level}{For \code{orphagroup()}: \code{"disorder"} (aggregation level),
 \code{"specialty"} (preferential parent) or \code{"classification"} (every
