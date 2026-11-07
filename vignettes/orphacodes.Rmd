@@ -40,7 +40,9 @@ orphaversions()               # releases available
 ```
 
 The package ships `orphamini`, a subset of the 2026 release restricted
-to the classification of rare cardiac diseases, which this vignette uses.
+to three classifications (rare cardiac diseases, rare neurological
+diseases and rare inborn errors of metabolism), which this vignette
+uses. Functions tell you once when a code falls outside the subset.
 `orphause()` registers a database as the default so that `db` can be
 omitted in every call.
 
@@ -115,8 +117,36 @@ orphaupdate(c("166068", "324"))
 ```{r, eval = FALSE}
 d <- orphadiff(orphafetch("2024"), orphafetch("2025"))
 d
-d$status
 ```
+
+Run on the real 2024 and 2025 releases (11,023 and 11,239 entities)
+the summary reads:
+
+```
+Orphanet nomenclature 2024 -> 2025
+11023 -> 11239 entities
+* 216 added
+* 0 removed
+* 418 renamed
+* 60 status changes
+* 32 level changes
+* 70 preferential parent changes
+```
+
+and `d$status` shows where the 60 status changes went: 22 entities
+became obsolete, 21 deprecated (with a "Moved to" replacement), 6 were
+flagged historic, and 6 inactive entities were reactivated. Orphanet
+never removes a code, which is why `removed` is empty; a registry that
+pins its release and runs `orphadiff()` at each upgrade sees exactly
+what its coded data are exposed to.
+
+### Other languages
+
+`orphafetch(lang = "fr")` fetches the French nomenclature; Czech,
+German, Spanish, Italian, Dutch, Polish and Portuguese are available
+too. Status, level, type and relation labels are decoded from the
+Orphanet identifiers, so every function behaves identically whatever
+the language; only names and synonyms are localised.
 
 ## A registry extract
 
@@ -154,6 +184,25 @@ registry actually covers.
 ```{r}
 p <- orphaprevalence(h, code = "orphacode", population = 5e6, level = "disorder")
 head(p[, c("group_name", "n", "per100k", "lower", "upper", "orphanet_class")], 5)
+```
+
+Registry prevalence is a lower bound: a registry only captures the
+cases that were diagnosed, referred and recorded, so observed figures
+below the Orphanet class usually measure under-ascertainment rather than
+a true difference. `method` records how the figure was obtained.
+
+Stratified prevalence takes a population table with one row per
+stratum, and a `standard` table of weights gives directly standardised
+rates with the Fay and Feuer (1997) gamma interval:
+
+```{r}
+pop <- data.frame(sex = c("F", "M"), population = c(2.6e6, 2.4e6))
+s <- orphaprevalence(h, code = "orphacode", population = pop, by = "sex", level = "specialty")
+head(s[, c("group_name", "sex", "n", "per100k", "lower", "upper")], 4)
+std <- data.frame(sex = c("F", "M"), weight = c(0.5, 0.5))
+z <- orphaprevalence(h, code = "orphacode", population = pop, by = "sex",
+                     standard = std, level = "specialty")
+head(z[, c("group_name", "n", "per100k", "lower", "upper", "method")], 4)
 ```
 
 ## Data capture
