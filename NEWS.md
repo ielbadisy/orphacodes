@@ -1,3 +1,16 @@
+# orphacodes 1.0.1
+
+* `orphafetch()` rebuilds a release from the cached pack files without
+  calling the GitHub API, so switching products (`include`,
+  `classifications`) or re-running a pipeline no longer counts against
+  the 60 requests per hour quota. A manifest of downloaded files is kept
+  in the cache directory.
+* The 2019 and 2020 nomenclature packs, which use the older element
+  names (`OrphaNumber`, `GroupOfType`, `OutDisorder`, `InDisorder`), are
+  parsed to the same tables as later releases.
+* Absent pack directories (no ICD-11 alignment or linearisation before
+  2021) no longer emit raw 404 warnings.
+
 # orphacodes 1.0.0
 
 * Language-independent parsing: status, classification level, entity

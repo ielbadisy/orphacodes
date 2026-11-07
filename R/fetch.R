@@ -42,7 +42,7 @@ ghapi <- function(path, query = NULL) {
   if (nzchar(pat)) h <- c(h, Authorization = paste("Bearer", pat))
   con <- url(url, headers = h)
   on.exit(close(con), add = TRUE)
-  txt <- tryCatch(readLines(con, warn = FALSE), error = function(e) {
+  txt <- tryCatch(suppressWarnings(readLines(con, warn = FALSE)), error = function(e) {
     cli::cli_abort(c("GitHub API request failed for {.url {url}}.",
                      "i" = "Check your connection; unauthenticated requests are limited to 60 per hour (set {.envvar GITHUB_PAT} to raise the limit).",
                      "x" = conditionMessage(e)))
@@ -89,6 +89,29 @@ resolveref <- function(version) {
 ghlist <- function(ref, dir) {
   res <- ghapi(paste0("repos/", rdcode_repo, "/contents/", utils::URLencode(dir)), list(ref = ref))
   if (is.null(res$name)) character() else res$name
+}
+
+# Reconstruct the pack file list of a cache directory written by an earlier
+# orphafetch() call (before manifests existed, or for another product set).
+cachedfiles <- function(cdir, lang, label) {
+  if (!dir.exists(cdir)) return(NULL)
+  one <- function(pattern, sub = cdir) {
+    f <- list.files(sub, pattern, full.names = TRUE)
+    if (length(f)) f[1] else NULL
+  }
+  nom <- one(paste0("^ORPHAnomenclature_", lang, "(_[0-9]{4})?\\.xml$"))
+  if (is.null(nom)) return(NULL)
+  files <- list(
+    nomenclature = nom,
+    icd10 = one(paste0("^ORPHA_ICD10_mapping_", lang, "(_[0-9]{4})?\\.xml$")),
+    icd11 = one(paste0("^ORPHA_ICD11_mapping_", lang, "(_[0-9]{4})?\\.xml$")),
+    linearisation = one(paste0("^ORPHAlinearisation_(", lang, "|en)(_[0-9]{4})?\\.xml$"))
+  )
+  cl <- list.files(file.path(cdir, "classifications"), "\\.xml$", full.names = TRUE)
+  if (length(cl)) files$classifications <- stats::setNames(cl, basename(cl))
+  files <- Filter(Negate(is.null), files)
+  src <- vapply(files, function(x) paste0("file://", x[1]), character(1))
+  list(files = files, src = src, ref = list(ref = NA_character_, label = label))
 }
 
 rawurl <- function(ref, path) {
@@ -150,8 +173,8 @@ orphafetch <- function(version = "latest", lang = "en",
                        quiet = FALSE) {
   lang <- tolower(lang)
   include <- if (length(include)) match.arg(include, c("xrefs", "prevalence", "genes"), several.ok = TRUE) else character()
-  r <- resolveref(version)
-  cdir <- file.path(orphacache(), paste0(r$label %||% "latest", "-", lang))
+  label <- if (identical(version, "latest")) NULL else version
+  cdir <- file.path(orphacache(), paste0(label %||% "latest", "-", lang))
   rds <- file.path(cdir, paste0("orphadb-", paste(c(include, if (classifications) "cl"), collapse = "-"), ".rds"))
   if (file.exists(rds) && !refresh) {
     db <- readRDS(rds)
@@ -159,9 +182,18 @@ orphafetch <- function(version = "latest", lang = "en",
     if (use) orphause(db)
     return(db)
   }
-  if (!quiet) cli::cli_alert_info("Fetching Orphanet nomenclature pack ({r$label %||% 'latest'}, {lang}) from RD-CODE ...")
+  manifest <- file.path(cdir, "manifest.rds")
   files <- list()
   src <- character()
+  m <- if (refresh) NULL else if (file.exists(manifest)) readRDS(manifest) else cachedfiles(cdir, lang, label)
+  if (!is.null(m) && (!isTRUE(classifications) || !is.null(m$files$classifications))) {
+    # The pack files were downloaded earlier (possibly for another set of
+    # products): rebuild from disk without touching the GitHub API.
+    files <- m$files; src <- m$src; r <- m$ref
+    if (!quiet) cli::cli_alert_info("Rebuilding release {.strong {r$label %||% 'latest'}} ({lang}) from cached files ...")
+  } else {
+  r <- resolveref(version)
+  if (!quiet) cli::cli_alert_info("Fetching Orphanet nomenclature pack ({r$label %||% 'latest'}, {lang}) from RD-CODE ...")
   nom <- grep(paste0("ORPHAnomenclature_", lang, "(_[0-9]{4})?\\.xml$"), ghlist(r$ref, "ORPHAnomenclature"), value = TRUE)
   if (!length(nom)) cli::cli_abort("No nomenclature file for language {.val {lang}} in release {.val {version}}.")
   files$nomenclature <- getfile(rawurl(r$ref, paste0("ORPHAnomenclature/", nom[1])), file.path(cdir, nom[1]), refresh)
@@ -191,6 +223,9 @@ orphafetch <- function(version = "latest", lang = "en",
       }, character(1))
       src["classifications"] <- rawurl(r$ref, paste0("Classifications/", lang, "/"))
     }
+  }
+  dir.create(cdir, recursive = TRUE, showWarnings = FALSE)
+  saveRDS(list(files = files, src = src, ref = r), manifest)
   }
   if (length(include)) {
     if (!quiet) cli::cli_alert_info("Downloading Orphadata products ({paste(include, collapse = ', ')}) ...")

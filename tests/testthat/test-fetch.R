@@ -9,6 +9,7 @@ test_that("orphacache honours the option", {
 test_that("orphaversions and orphafetch work online", {
   skip_on_cran()
   skip_if_offline()
+  skip_if_ratelimited()
   v <- orphaversions()
   expect_true("2025" %in% v$version)
   withr::local_options(orphacodes.cache_dir = tempfile())
@@ -21,6 +22,7 @@ test_that("orphaversions and orphafetch work online", {
 test_that("a non-English release parses to canonical labels", {
   skip_on_cran()
   skip_if_offline()
+  skip_if_ratelimited()
   withr::local_options(orphacodes.cache_dir = tempfile())
   fr <- orphafetch("2025", lang = "fr", include = character(), classifications = FALSE, use = FALSE)
   expect_true(all(fr$disorders$status %in% c("Active", "Active: Historic", "Inactive: Deprecated",

@@ -22,7 +22,23 @@ t1 <- function(nodes, xpath) {
 
 readxml <- function(path) {
   if (!file.exists(path)) cli::cli_abort("File not found: {.path {path}}.")
-  xml2::read_xml(path, options = c("NOBLANKS", "HUGE"))
+  doc <- xml2::read_xml(path, options = c("NOBLANKS", "HUGE"))
+  legacynames(doc)
+}
+
+# Releases up to 2019 use an older schema: OrphaNumber for OrphaCode,
+# GroupOfType for ClassificationLevel, OrphanumberAggregation inside the
+# aggregation level, and InDisorder/OutDisorder for RootDisorder/
+# TargetDisorder in the associations. Rename those elements once so that
+# every parser works on one schema.
+legacynames <- function(doc) {
+  old <- c("OrphaNumber", "GroupOfType", "OrphanumberAggregation", "OutDisorder", "InDisorder")
+  new <- c("OrphaCode", "ClassificationLevel", "OrphaCode", "TargetDisorder", "RootDisorder")
+  for (i in seq_along(old)) {
+    n <- xml2::xml_find_all(doc, paste0("//", old[i]))
+    if (length(n)) xml2::xml_set_name(n, new[i])
+  }
+  doc
 }
 
 # Orphanet identifiers are language independent; the labels are not.
