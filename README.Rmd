@@ -1,0 +1,68 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.path = "man/figures/README-")
+```
+
+# orphacodes
+
+<!-- badges: start -->
+[![R-CMD-check](https://github.com/ielbadisy/orphacodes/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/ielbadisy/orphacodes/actions/workflows/R-CMD-check.yaml)
+<!-- badges: end -->
+
+`orphacodes` makes the Orphanet nomenclature of rare diseases a
+versioned, queryable object in R and provides the operations a registry,
+a cohort or a surveillance system needs around it:
+
+- **Nomenclature**: download a pinned yearly release (`orphafetch()`),
+  look up, search and validate ORPHAcodes, standardise free-text
+  diagnoses to codes, navigate the classification.
+- **Interoperability**: map to and from ICD-10, ICD-11, OMIM, MONDO,
+  UMLS, MeSH, MedDRA and GARD with the relation type and validation
+  status preserved.
+- **Versioning**: follow the history of a code, update deprecated codes,
+  compare two releases.
+- **Registry integration**: quality control of a coded dataset,
+  harmonisation to one release, choice lists and REDCap dictionaries.
+- **Epidemiology**: aggregate cases at the disorder, specialty or
+  classification level and report observed prevalence beside the Orphanet
+  reference class.
+
+All tables are returned as `basetable` data frames.
+
+## Installation
+
+```r
+# install.packages("pak")
+pak::pak("ielbadisy/orphacodes")
+```
+
+## Example
+
+```{r example}
+library(orphacodes)
+orphause(orphamini)   # bundled subset; orphafetch("2025") for a full release
+
+orphavalidate(c("ORPHA:324", "166068", "abc"))[, c("input", "issue", "name", "replacement")]
+orphastandardize(data.frame(dx = c("Anderson-Fabry disease", "Fabri desease")), disease = "dx")
+orphamap("324", to = "ICD10")[, c("orphacode", "code", "relation", "validation")]
+```
+
+A registry extract goes through quality control, harmonisation and
+aggregation:
+
+```{r registry}
+qc <- orphaqc(orphademo, code = "diagnosis_code", id = "patient_id")
+attr(qc, "summary")
+h <- orphaharmonize(orphademo, code = "diagnosis_code", disease = "diagnosis")
+orphaaggregate(h, code = "orphacode", level = "specialty")
+```
+
+## Data source
+
+Orphanet nomenclature files for coding (RD-CODE repository) and Orphadata
+products, CC-BY-4.0. See `orphacite()`.

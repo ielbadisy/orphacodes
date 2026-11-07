@@ -1,0 +1,55 @@
+Package: orphacodes
+Title: Rare Disease Nomenclature, Coding, Harmonisation and Registry
+    Interoperability with 'Orphanet'
+Version: 0.1.0
+Authors@R: c(
+    person(
+      given = "Imad",
+      family = "El Badisy",
+      role = c("aut", "cre"),
+      email = "elbadisyimad@gmail.com"
+    )
+  )
+Description: A toolkit for managing rare disease data coded with the
+    'Orphanet' nomenclature <https://www.orpha.net/>. It downloads and
+    parses the 'Orphanet' nomenclature files for coding and the free
+    'Orphadata' products into a versioned, cached database; validates and
+    normalises ORPHAcodes; standardises free-text disease names to
+    ORPHAcodes through preferred terms, synonyms and fuzzy matching;
+    navigates the 'Orphanet' classifications and the linearisation
+    (preferential parent); maps ORPHAcodes to and from ICD-10, ICD-11,
+    OMIM, MONDO, UMLS, MeSH, MedDRA and GARD while preserving the
+    direction, type and validation status of every alignment; tracks
+    deprecated and obsolete codes with their replacements and compares
+    two nomenclature releases; generates 'REDCap' data dictionaries and
+    coding quality reports for rare disease registries; and aggregates
+    patient-level data at any level of the classification with
+    prevalence estimates set against the 'Orphanet' epidemiological
+    reference data.
+License: MIT + file LICENSE
+URL: https://github.com/ielbadisy/orphacodes
+BugReports: https://github.com/ielbadisy/orphacodes/issues
+Depends:
+    R (>= 4.1.0)
+Imports:
+    basetable,
+    cli,
+    jsonlite,
+    stats,
+    tools,
+    utils,
+    xml2
+Suggests:
+    curl,
+    knitr,
+    readxl,
+    rmarkdown,
+    testthat (>= 3.0.0),
+    withr
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+Encoding: UTF-8
+Language: en-GB
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3

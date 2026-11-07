@@ -1,0 +1,178 @@
+---
+title: "Coding rare diseases with orphacodes"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Coding rare diseases with orphacodes}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+Rare-disease registries, cohorts and surveillance systems code diagnoses
+with ORPHAcodes, the identifiers of the Orphanet nomenclature. The
+nomenclature is revised every year: entities are created, deprecated and
+merged, names change, and the classification moves. `orphacodes` makes
+that nomenclature a versioned, queryable object in R and provides the
+operations a registry needs around it: validation of codes,
+standardisation of free-text diagnoses, mapping to ICD-10, ICD-11, OMIM
+and other systems, navigation of the classification, update of a
+registry to a newer release, and aggregation of cases at the right
+level.
+
+```{r setup}
+library(orphacodes)
+```
+
+## The database
+
+Everything works on an `orphadb` object. `orphafetch()` downloads one
+yearly release of the Orphanet nomenclature files for coding (and,
+optionally, the Orphadata products for prevalence, genes and the non-ICD
+alignments), parses it once and caches it:
+
+```{r, eval = FALSE}
+db <- orphafetch("2025")      # a pinned release
+db <- orphafetch()            # the current files
+orphaversions()               # releases available
+```
+
+The package ships `orphamini`, a subset of the 2026 release restricted
+to the classification of rare cardiac diseases, which this vignette uses.
+`orphause()` registers a database as the default so that `db` can be
+omitted in every call.
+
+```{r}
+orphause(orphamini)
+orphamini
+```
+
+## Look up, search, validate
+
+Codes are accepted in every common format (`"ORPHA:324"`, `"orpha 324"`,
+`324`):
+
+```{r}
+orphalookup(c("ORPHA:324", "orpha 558", 97929))[, c("orphacode", "name", "status", "level", "aggregation_code")]
+orphasearch("cardiomyopathy", level = "Disorder", max = 5)
+```
+
+Validation reports the format, presence and status of each code and the
+replacement recorded by Orphanet for deprecated codes:
+
+```{r}
+orphavalidate(c("ORPHA:324", "166068", "abc", NA, "1"))[, c("input", "issue", "name", "replacement", "relation")]
+```
+
+## Standardise free-text diagnoses
+
+`orphastandardize()` matches names on the preferred term, then on
+synonyms, then approximately. Ties are reported as ambiguous rather than
+resolved silently.
+
+```{r}
+reg <- data.frame(dx = c("Fabry disease", "Anderson-Fabry disease", "Fabri desease", "Flu"))
+orphastandardize(reg, disease = "dx")
+```
+
+## Hierarchy
+
+The Orphanet classification is a polyhierarchy. The package exposes
+direct and transitive relations, and three ways to roll a code up to a
+single group: the EU aggregation level (subtypes to their disorder), the
+preferential parent (head of the linearised classification, no double
+counting), or the root of each classification an entity belongs to.
+
+```{r}
+orphaancestors("324")[, c("related", "related_name", "depth")]
+orphagroup(c("324", "558"), level = "specialty")[, c("orphacode", "group", "group_name")]
+```
+
+## Interoperability
+
+Mappings are many-to-many and carry their relation type: `E` exact,
+`NTBT` the ORPHAcode is narrower than the target, `BTNT` broader, `ND`
+not decided. Nothing is collapsed unless you ask with `best = TRUE`.
+
+```{r}
+orphamap("324", to = "ICD10")[, c("orphacode", "code", "relation", "icd_relation", "validation")]
+orphafrom("E75.2", from = "ICD10")[, c("orphacode", "name", "relation")]
+orphasources()
+```
+
+## Versions
+
+`orphahistory()` shows what Orphanet did with a code, `orphaupdate()`
+applies the mandatory "Moved to" replacements, following chains, and
+`orphadiff()` compares two releases:
+
+```{r}
+orphaupdate(c("166068", "324"))
+```
+
+```{r, eval = FALSE}
+d <- orphadiff(orphafetch("2024"), orphafetch("2025"))
+d
+d$status
+```
+
+## A registry extract
+
+`orphademo` is a simulated registry extract with the defects met in
+practice: synonyms and typos in the diagnosis text, codes written with
+prefixes, deprecated and group-level codes, missing values and a
+duplicated identifier.
+
+```{r}
+head(orphademo)
+qc <- orphaqc(orphademo, code = "diagnosis_code", id = "patient_id")
+summary(qc)
+```
+
+`orphaharmonize()` normalises the codes, applies the replacements,
+recovers codes from the diagnosis text when the code is missing or
+invalid, and adds the roll-up columns:
+
+```{r}
+h <- orphaharmonize(orphademo, code = "diagnosis_code", disease = "diagnosis")
+basetable::count(h, "orphacode_source")
+```
+
+## Counting and prevalence
+
+```{r}
+orphaaggregate(h, code = "orphacode", level = "specialty", by = "sex")
+```
+
+`orphaprevalence()` reports observed cases per 100,000 with an exact
+Poisson interval next to the point prevalence class Orphanet publishes.
+The denominator is yours to justify: it must be the population the
+registry actually covers.
+
+```{r}
+p <- orphaprevalence(h, code = "orphacode", population = 5e6, level = "disorder")
+head(p[, c("group_name", "n", "per100k", "lower", "upper", "orphanet_class")], 5)
+```
+
+## Data capture
+
+`orphachoices()` builds a coded value list for any form or database
+constraint; `orpharedcap()` formats it as a REDCap data dictionary row
+(an autocomplete dropdown) ready for import.
+
+```{r}
+head(orphachoices(), 3)
+dd <- orpharedcap(field = "rare_disease", form = "diagnosis")
+substr(dd[["Choices, Calculations, OR Slider Labels"]], 1, 80)
+```
+
+## Citing Orphanet
+
+The data are published by Orphanet under CC-BY-4.0. `orphacite()` gives
+the citation strings and the version used.
+
+```{r}
+orphacite()
+```

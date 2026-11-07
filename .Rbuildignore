@@ -1,0 +1,11 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^data-raw$
+^README\.Rmd$
+^README_files$
+^\.github$
+^cran-comments\.md$
+^\.git$
+^LICENSE\.md$
+^doc$
+^Meta$
