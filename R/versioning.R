@@ -92,8 +92,9 @@ orphadiff <- function(old, new) {
   changed <- function(col) {
     x <- both[[paste0(col, "_old")]]; y <- both[[paste0(col, "_new")]]
     k <- !(is.na(x) & is.na(y)) & (is.na(x) | is.na(y) | x != y)
-    out <- both[k, c("orphacode", "name_new", paste0(col, c("_old", "_new"))), drop = FALSE]
-    names(out)[2] <- "name"
+    cols <- unique(c("orphacode", "name_new", paste0(col, c("_old", "_new"))))
+    out <- both[k, cols, drop = FALSE]
+    names(out)[names(out) == "name_new"] <- if (col == "name") "name_new" else "name"
     ascdf(out)
   }
   structure(list(
