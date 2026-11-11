@@ -48,3 +48,19 @@ test_that("subset hint is given once for unknown codes", {
   withr::local_options(rlib_message_verbosity = "verbose")
   expect_message(orphalookup("99999999", db = orphamini), "bundled subset")
 })
+
+test_that("British spellings and possessives match exactly", {
+  reg <- data.frame(dx = c("Sickle cell anaemia", "Diamond-Blackfan anaemia",
+                           "Galactosaemia", "Fabry's disease"))
+  r <- orphastandardize(reg, disease = "dx", db = orphamini)
+  expect_equal(r$orphacode_name[1:3], c("Sickle cell anemia", "Diamond-Blackfan anemia", "Galactosemia"))
+  expect_equal(r$orphacode_match[1:3], rep("exact", 3))
+  expect_false(is.na(r$orphacode[4]))
+})
+
+test_that("qualifiers such as familial or hereditary are not ignored", {
+  r <- orphastandardize(data.frame(dx = c("dysautonomia", "orotic aciduria")),
+                        disease = "dx", db = orphamini)
+  expect_false(any(r$orphacode_name %in% c("Familial dysautonomia", "Hereditary orotic aciduria") &
+                     r$orphacode_score == 1, na.rm = TRUE))
+})

@@ -158,12 +158,13 @@ matchdict <- function(db, active_only = TRUE) {
 }
 
 # Words that carry no identity for matching (English and French).
+# Qualifiers such as "familial", "hereditary", "congenital" or "rare" are
+# kept: "pancreatic cancer" is not "familial pancreatic carcinoma". Single
+# letters are kept too ("hemophilia a" vs "hemophilia b").
 stopwords <- c("syndrome", "disease", "disorder", "type", "of", "the", "and",
-               "with", "or", "due", "to", "in", "a", "an", "familial",
-               "congenital", "rare", "hereditary", "form", "forme",
+               "with", "or", "due", "to", "in", "an", "form", "forme",
                "maladie", "de", "du", "des", "la", "le", "les", "et", "ou",
-               "par", "au", "aux", "d", "l", "syndromique", "familiale",
-               "congenitale", "hereditaire")
+               "par", "au", "aux", "d", "l", "syndromique")
 
 # Sorted informative tokens of a normalised key: makes the comparison
 # independent of word order ("syndrome de marfan" ~ "marfan syndrome").
