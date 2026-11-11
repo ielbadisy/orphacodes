@@ -1,7 +1,7 @@
 Package: orphacodes
 Title: Rare Disease Nomenclature, Coding, Harmonisation and Registry
     Interoperability with 'Orphanet'
-Version: 1.0.1.9000
+Version: 1.1.0
 Authors@R: c(
     person(
       given = "Imad",
