@@ -1,3 +1,10 @@
+# orphacodes (development version)
+
+* Downloads use a 15-minute timeout instead of R's 60-second default, so
+  the large Orphadata products (cross-references, prevalence) no longer
+  fail on a slow connection. A failed English Orphadata product now
+  raises a warning instead of leaving an empty table silently.
+
 # orphacodes 1.0.1
 
 * `orphafetch()` rebuilds a release from the cached pack files without
