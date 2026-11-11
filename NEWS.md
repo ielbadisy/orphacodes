@@ -1,4 +1,4 @@
-# orphacodes (development version)
+# orphacodes 1.1.0
 
 * `orphaaggregate()` and `orphagroup(level = "disorder")` no longer fail
   when a code is not in the database; such rows are reported under
