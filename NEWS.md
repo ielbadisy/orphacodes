@@ -1,5 +1,10 @@
 # orphacodes (development version)
 
+* `orphastandardize()` (and `orphaharmonize()` through it) now accepts a
+  fuzzy match only at a similarity of 0.9 or more (`max_distance = 0.1`,
+  was 0.2). Looser matches were mostly another disease, such as
+  non-small cell lung cancer coded as small cell lung cancer. Pass
+  `max_distance = 0.2` to get the old behaviour.
 * `orphastandardize()` no longer ignores qualifiers such as "familial",
   "hereditary", "congenital", "rare" or a single letter when matching, so
   "pancreatic cancer" is no longer coded as familial pancreatic carcinoma

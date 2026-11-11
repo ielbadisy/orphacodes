@@ -47,13 +47,13 @@ orphavalidate(c("ORPHA:324", "166068", "abc"))[, c("input", "issue", "name", "re
 #> 1 ORPHA:324             ok                     Fabry disease        <NA>
 #> 2    166068     deprecated Pontocerebellar hypoplasia type 5      166063
 #> 3       abc invalid_format                              <NA>        <NA>
-orphastandardize(data.frame(dx = c("Anderson-Fabry disease", "Fabri desease")), disease = "dx")
+orphastandardize(data.frame(dx = c("Anderson-Fabry disease", "Fabry desease")), disease = "dx")
 #>                       dx orphacode orphacode_name orphacode_match
 #> 1 Anderson-Fabry disease       324  Fabry disease         synonym
-#> 2          Fabri desease       324  Fabry disease           fuzzy
+#> 2          Fabry desease       324  Fabry disease           fuzzy
 #>   orphacode_score
 #> 1           1.000
-#> 2           0.846
+#> 2           0.923
 orphamap("324", to = "ICD10")[, c("orphacode", "code", "relation", "validation")]
 #> # basetable: 1 x 4
 #>   orphacode  code relation validation

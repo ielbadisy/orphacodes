@@ -24,7 +24,7 @@ test_that("orphasearch finds names and synonyms", {
 })
 
 test_that("orphastandardize matches exact, synonym and fuzzy tiers", {
-  reg <- data.frame(dx = c("Fabry disease", "Anderson-Fabry disease", "Fabri desease", "Flu", NA))
+  reg <- data.frame(dx = c("Fabry disease", "Anderson-Fabry disease", "Fabry desease", "Flu", NA))
   r <- orphastandardize(reg, disease = "dx", db = orphamini)
   expect_equal(r$orphacode, c("324", "324", "324", NA, NA))
   expect_equal(r$orphacode_match, c("exact", "synonym", "fuzzy", "none", "none"))
@@ -33,8 +33,15 @@ test_that("orphastandardize matches exact, synonym and fuzzy tiers", {
   expect_true(is.na(r2$orphacode[3]))
 })
 
+test_that("max_distance sets how loose a fuzzy match may be", {
+  reg <- data.frame(dx = "Fabri desease")
+  expect_equal(orphastandardize(reg, disease = "dx", db = orphamini)$orphacode_match, "none")
+  r <- orphastandardize(reg, disease = "dx", db = orphamini, max_distance = 0.2)
+  expect_equal(r$orphacode, "324")
+})
+
 test_that("fuzzy matching handles word order, French names and short names", {
-  reg <- data.frame(dx = c("Fabri desease", "Disease, Fabry", "Maladie de Fabry",
+  reg <- data.frame(dx = c("Fabry desease", "Disease, Fabry", "Maladie de Fabry",
                            "syndrome de Dubowitz", "Dubowitz syndrom", "Flu"))
   r <- orphastandardize(reg, disease = "dx", db = orphamini)
   expect_equal(r$orphacode[1:5], c("324", "324", "324", "235", "235"))

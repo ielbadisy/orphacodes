@@ -48,7 +48,7 @@ library(orphacodes)
 orphause(orphamini)   # bundled subset; orphafetch("2025") for a full release
 
 orphavalidate(c("ORPHA:324", "166068", "abc"))[, c("input", "issue", "name", "replacement")]
-orphastandardize(data.frame(dx = c("Anderson-Fabry disease", "Fabri desease")), disease = "dx")
+orphastandardize(data.frame(dx = c("Anderson-Fabry disease", "Fabry desease")), disease = "dx")
 orphamap("324", to = "ICD10")[, c("orphacode", "code", "relation", "validation")]
 ```
 
