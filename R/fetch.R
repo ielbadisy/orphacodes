@@ -122,6 +122,9 @@ getfile <- function(url, dest, refresh = FALSE, quiet = TRUE) {
   if (file.exists(dest) && file.size(dest) > 0 && !refresh) return(dest)
   dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
   tmp <- paste0(dest, ".part")
+  # Orphadata files are large and the server can be slow; R's default 60 s is too short
+  old <- options(timeout = max(900, getOption("timeout")))
+  on.exit(options(old), add = TRUE)
   ok <- tryCatch({
     utils::download.file(url, tmp, mode = "wb", quiet = quiet)
     TRUE
@@ -239,7 +242,10 @@ orphafetch <- function(version = "latest", lang = "en",
           u <<- paste0(orphadata_base, "/en_", prod[[p]], ".xml")
           dest <<- file.path(cdir, paste0("en_", prod[[p]], ".xml"))
           getfile(u, dest, refresh); TRUE
-        } else FALSE
+        } else {
+          cli::cli_warn("Could not download Orphadata {prod[[p]]}; the database has no {p}.")
+          FALSE
+        }
       })
       if (ok) { files[[p]] <- dest; src[p] <- u }
     }
