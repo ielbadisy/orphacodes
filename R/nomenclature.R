@@ -176,11 +176,30 @@ sortkey <- function(key) {
   }, character(1))
 }
 
+# TRUE where `b` equals `a` with two adjacent characters swapped.
+onetransposition <- function(a, b) {
+  x <- strsplit(a, "", fixed = TRUE)[[1]]
+  vapply(strsplit(b, "", fixed = TRUE), function(z) {
+    if (length(z) != length(x)) return(FALSE)
+    p <- which(x != z)
+    length(p) == 2L && p[2] == p[1] + 1L && x[p[1]] == z[p[2]] && x[p[2]] == z[p[1]]
+  }, logical(1))
+}
+
+# Edit distance in which a swap of two adjacent characters counts as one
+# edit, as in a typing error ("cysitc fibrosis"), not two.
+editdist <- function(a, b) {
+  d <- basetable::textdist(a, b)[1, ]
+  t <- which(d == 2 & nchar(b) == nchar(a))
+  if (length(t)) d[t[onetransposition(a, b[t])]] <- 1
+  d
+}
+
 # Fuzzy matching: for each key, the relative edit distance to every
 # dictionary entry is the minimum over the raw key and the sorted-token
-# key (basetable::textdist, vectorised in C++). Candidates must share at
-# least one informative token with the query (or a 4-letter prefix of
-# one), and short queries are not fuzzy-matched at all. Returns, per key,
+# key (basetable::textdist, vectorised in C++; an adjacent swap counts as
+# one edit). Candidates must share at least one informative token with
+# the query (or a 4-letter prefix of one), and short queries are not fuzzy-matched at all. Returns, per key,
 # the index of the best entry, its similarity and the number of distinct
 # entities tied at the best distance.
 fuzzymatch <- function(keys, dict, max_distance, min_nchar = 5L) {
@@ -199,8 +218,8 @@ fuzzymatch <- function(keys, dict, max_distance, min_nchar = 5L) {
     cand <- unique(c(unlist(bytok[qt], use.names = FALSE),
                      unlist(bypre[substr(qt, 1, 4)], use.names = FALSE)))
     if (!length(cand)) return(none)
-    d1 <- basetable::textdist(k, dict$key[cand])[1, ] / pmax(nchar(k), n1[cand])
-    d2 <- basetable::textdist(sk, dict$skey[cand])[1, ] / pmax(nchar(sk), n2[cand])
+    d1 <- editdist(k, dict$key[cand]) / pmax(nchar(k), n1[cand])
+    d2 <- editdist(sk, dict$skey[cand]) / pmax(nchar(sk), n2[cand])
     rel <- pmin(d1, d2)
     ok <- which(rel <= max_distance)
     if (!length(ok)) return(none)

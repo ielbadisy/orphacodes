@@ -1,5 +1,8 @@
 # orphacodes (development version)
 
+* Fuzzy matching in `orphastandardize()` counts a swap of two adjacent
+  letters as one edit instead of two, so common typing errors such as
+  "Cysitc fibrosis" are matched under the 0.1 default.
 * `orphastandardize()` (and `orphaharmonize()` through it) now accepts a
   fuzzy match only at a similarity of 0.9 or more (`max_distance = 0.1`,
   was 0.2). Looser matches were mostly another disease, such as
