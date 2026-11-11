@@ -1,5 +1,12 @@
 # orphacodes (development version)
 
+* `orphastandardize()` no longer ignores qualifiers such as "familial",
+  "hereditary", "congenital", "rare" or a single letter when matching, so
+  "pancreatic cancer" is no longer coded as familial pancreatic carcinoma
+  and "hemophilia" is not taken for hemophilia A. British spellings
+  (leukaemia, haemophilia, tumour, oesophageal, paediatric) and
+  possessives ("Huntington's disease") are normalised before matching and
+  now match exactly.
 * Downloads use a 15-minute timeout instead of R's 60-second default, so
   the large Orphadata products (cross-references, prevalence) no longer
   fail on a slow connection. A failed English Orphadata product now

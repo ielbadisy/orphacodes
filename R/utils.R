@@ -33,11 +33,19 @@ orphacode <- function(x, prefix = FALSE) {
 }
 
 # Normalise a disease name for matching: lower case, ASCII transliteration,
-# punctuation to spaces, collapsed whitespace.
+# possessives dropped ("Huntington's" -> "huntington"), British spellings
+# folded to the American ones used by Orphanet (leukaemia, haemophilia,
+# tumour, oesophageal), punctuation to spaces, collapsed whitespace.
 normtext <- function(x) {
-  x <- basetable::lower(basetable::transliterate(as.character(x)))
-  basetable::squish(gsub("[^a-z0-9]+", " ", x))
+  x <- gsub("['\u2019\u0092`]s\\b", "", as.character(x), perl = TRUE)
+  x <- basetable::lower(basetable::transliterate(x))
+  x <- gsub("[^a-z0-9]+", " ", x)
+  for (i in seq_along(spelling)) x <- gsub(names(spelling)[i], spelling[[i]], x, perl = TRUE)
+  basetable::squish(x)
 }
+
+spelling <- c("aem" = "em", "\\boes" = "es", "\\boe(?=d)" = "e", "our\\b" = "or",
+              "\\bpaed" = "ped", "\\bfoet" = "fet", "\\borthopaed" = "orthoped")
 
 assertdf <- function(x, arg = "data") {
   if (!is.data.frame(x)) {
