@@ -13,3 +13,11 @@ test_that("orphaprevref picks one class per code", {
   expect_equal(r$orphacode, c("324", "558"))
   expect_true(nrow(orphaprevref("324", db = orphamini, best = FALSE)) >= 1)
 })
+
+test_that("orphaaggregate reports unknown codes under NA instead of failing", {
+  x <- data.frame(code = c("324", "99999999", NA, "ORPHA:324"))
+  a <- orphaaggregate(x, code = "code", level = "disorder", db = orphamini)
+  expect_equal(sum(a$n), 4L)
+  expect_equal(a$n[a$group %in% "324"], 2L)
+  expect_equal(sum(a$n[is.na(a$group)]), 2L)
+})

@@ -1,5 +1,8 @@
 # orphacodes (development version)
 
+* `orphaaggregate()` and `orphagroup(level = "disorder")` no longer fail
+  when a code is not in the database; such rows are reported under
+  `group = NA` as documented.
 * `orphaprevalence()` is removed. Rates and confidence intervals are
   general epidemiology, outside the scope of an Orphanet toolkit; count
   cases with `orphaaggregate()`, compute the rate with your own

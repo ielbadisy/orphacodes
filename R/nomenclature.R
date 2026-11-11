@@ -453,7 +453,8 @@ orphagroup <- function(codes, db = NULL, level = c("disorder", "specialty", "cla
   i <- match(code, d$orphacode)
   if (level == "disorder") {
     g <- d$aggregation_code[i]
-    g[is.na(g) & d$level[i] == "Disorder"] <- code[is.na(g) & d$level[i] == "Disorder"]
+    self <- is.na(g) & d$level[i] %in% "Disorder"
+    g[self] <- code[self]
     out <- data.frame(orphacode = code, name = d$name[i], group = g,
                       group_name = d$name[match(g, d$orphacode)], level = level,
                       stringsAsFactors = FALSE)
