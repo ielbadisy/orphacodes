@@ -33,6 +33,14 @@ test_that("orphastandardize matches exact, synonym and fuzzy tiers", {
   expect_true(is.na(r2$orphacode[3]))
 })
 
+test_that("a swap of two adjacent letters counts as one edit", {
+  # two edits under plain Levenshtein (2/16 > 0.1), one with the swap rule
+  r <- orphastandardize(data.frame(dx = "Sandhfof disease"), disease = "dx", db = orphamini)
+  expect_equal(r$orphacode_name, "Sandhoff disease")
+  expect_equal(r$orphacode_match, "fuzzy")
+  expect_gt(r$orphacode_score, 0.9)
+})
+
 test_that("max_distance sets how loose a fuzzy match may be", {
   reg <- data.frame(dx = "Fabri desease")
   expect_equal(orphastandardize(reg, disease = "dx", db = orphamini)$orphacode_match, "none")
