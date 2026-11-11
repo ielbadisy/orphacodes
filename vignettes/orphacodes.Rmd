@@ -75,7 +75,7 @@ synonyms, then approximately. Ties are reported as ambiguous rather than
 resolved silently.
 
 ```{r}
-reg <- data.frame(dx = c("Fabry disease", "Anderson-Fabry disease", "Fabri desease", "Flu"))
+reg <- data.frame(dx = c("Fabry disease", "Anderson-Fabry disease", "Fabry desease", "Flu"))
 orphastandardize(reg, disease = "dx")
 ```
 

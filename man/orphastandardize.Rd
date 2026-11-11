@@ -10,7 +10,7 @@ orphastandardize(
   output = "orphacode",
   db = NULL,
   fuzzy = TRUE,
-  max_distance = 0.2,
+  max_distance = 0.1,
   min_nchar = 5L,
   active_only = TRUE,
   level = NULL
@@ -29,7 +29,9 @@ are added: \verb{<output>_name}, \verb{<output>_match} and \verb{<output>_score}
 \item{fuzzy}{Logical; enable approximate matching.}
 
 \item{max_distance}{Maximum relative edit distance (0 to 1) accepted for a
-fuzzy match.}
+fuzzy match. The default 0.1 keeps similarities of 0.9 and above; on a
+review of orphan-drug indications, looser matches were right about half
+the time.}
 
 \item{min_nchar}{Shortest normalised name eligible for fuzzy matching.}
 
@@ -58,6 +60,6 @@ silently.
 }
 \examples{
 reg <- data.frame(id = 1:5, dx = c("Fabry disease", "Anderson-Fabry disease",
-  "Fabri desease", "syndrome de Marfan", "Flu"))
+  "Fabry desease", "syndrome de Marfan", "Flu"))
 orphastandardize(reg, disease = "dx", db = orphamini)
 }
