@@ -22,10 +22,9 @@ Description: A toolkit for managing rare disease data coded with the
     direction, type and validation status of every alignment; tracks
     deprecated and obsolete codes with their replacements and compares
     two nomenclature releases; generates 'REDCap' data dictionaries and
-    coding quality reports for rare disease registries; and aggregates
-    patient-level data at any level of the classification with
-    prevalence estimates set against the 'Orphanet' epidemiological
-    reference data.
+    coding quality reports for rare disease registries; aggregates
+    patient-level data at any level of the classification; and returns
+    the 'Orphanet' epidemiological reference data for each code.
 License: MIT + file LICENSE
 URL: https://github.com/ielbadisy/orphacodes
 BugReports: https://github.com/ielbadisy/orphacodes/issues

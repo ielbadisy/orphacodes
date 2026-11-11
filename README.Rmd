@@ -29,8 +29,8 @@ a cohort or a surveillance system needs around it:
 - **Registry integration**: quality control of a coded dataset,
   harmonisation to one release, choice lists and REDCap dictionaries.
 - **Epidemiology**: aggregate cases at the disorder, specialty or
-  classification level and report observed prevalence beside the Orphanet
-  reference class.
+  classification level and look up the prevalence class Orphanet
+  publishes for each code.
 
 All tables are returned as `basetable` data frames.
 

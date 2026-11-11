@@ -18,8 +18,7 @@
 #' * **Versioning**: [orphahistory()], [orphaupdate()] and [orphadiff()]
 #'   follow deprecated and obsolete codes across releases.
 #' * **Registries and epidemiology**: [orpharedcap()], [orphaqc()],
-#'   [orphaharmonize()], [orphaaggregate()], [orphaprevalence()] and
-#'   [orphaprevref()].
+#'   [orphaharmonize()], [orphaaggregate()] and [orphaprevref()].
 #'
 #' All Orphanet data are distributed under the Creative Commons Attribution
 #' 4.0 licence by INSERM. Cite Orphanet and Orphadata as indicated by

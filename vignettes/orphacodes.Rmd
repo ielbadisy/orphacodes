@@ -170,39 +170,20 @@ h <- orphaharmonize(orphademo, code = "diagnosis_code", disease = "diagnosis")
 basetable::count(h, "orphacode_source")
 ```
 
-## Counting and prevalence
+## Counting and reference prevalence
 
 ```{r}
 orphaaggregate(h, code = "orphacode", level = "specialty", by = "sex")
 ```
 
-`orphaprevalence()` reports observed cases per 100,000 with an exact
-Poisson interval next to the point prevalence class Orphanet publishes.
-The denominator is yours to justify: it must be the population the
-registry actually covers.
+`orphaprevref()` returns the point prevalence class Orphanet publishes
+for each code, preferring a European estimate and falling back to a
+worldwide one:
 
 ```{r}
-p <- orphaprevalence(h, code = "orphacode", population = 5e6, level = "disorder")
-head(p[, c("group_name", "n", "per100k", "lower", "upper", "orphanet_class")], 5)
-```
-
-Registry prevalence is a lower bound: a registry only captures the
-cases that were diagnosed, referred and recorded, so observed figures
-below the Orphanet class usually measure under-ascertainment rather than
-a true difference. `method` records how the figure was obtained.
-
-Stratified prevalence takes a population table with one row per
-stratum, and a `standard` table of weights gives directly standardised
-rates with the Fay and Feuer (1997) gamma interval:
-
-```{r}
-pop <- data.frame(sex = c("F", "M"), population = c(2.6e6, 2.4e6))
-s <- orphaprevalence(h, code = "orphacode", population = pop, by = "sex", level = "specialty")
-head(s[, c("group_name", "sex", "n", "per100k", "lower", "upper")], 4)
-std <- data.frame(sex = c("F", "M"), weight = c(0.5, 0.5))
-z <- orphaprevalence(h, code = "orphacode", population = pop, by = "sex",
-                     standard = std, level = "specialty")
-head(z[, c("group_name", "n", "per100k", "lower", "upper", "method")], 4)
+a <- orphaaggregate(h, code = "orphacode", level = "disorder")
+r <- orphaprevref(head(a$group[!is.na(a$group)], 5))
+r[, c("orphacode", "name", "class", "geographic")]
 ```
 
 ## Data capture
