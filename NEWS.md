@@ -1,5 +1,9 @@
 # orphacodes (development version)
 
+* `orphaprevalence()` is removed. Rates and confidence intervals are
+  general epidemiology, outside the scope of an Orphanet toolkit; count
+  cases with `orphaaggregate()`, compute the rate with your own
+  denominator, and compare with `orphaprevref()`.
 * Fuzzy matching in `orphastandardize()` counts a swap of two adjacent
   letters as one edit instead of two, so common typing errors such as
   "Cysitc fibrosis" are matched under the 0.1 default.

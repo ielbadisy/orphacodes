@@ -26,8 +26,7 @@ collapsing one-to-many relations.
 \item \strong{Versioning}: \code{\link[=orphahistory]{orphahistory()}}, \code{\link[=orphaupdate]{orphaupdate()}} and \code{\link[=orphadiff]{orphadiff()}}
 follow deprecated and obsolete codes across releases.
 \item \strong{Registries and epidemiology}: \code{\link[=orpharedcap]{orpharedcap()}}, \code{\link[=orphaqc]{orphaqc()}},
-\code{\link[=orphaharmonize]{orphaharmonize()}}, \code{\link[=orphaaggregate]{orphaaggregate()}}, \code{\link[=orphaprevalence]{orphaprevalence()}} and
-\code{\link[=orphaprevref]{orphaprevref()}}.
+\code{\link[=orphaharmonize]{orphaharmonize()}}, \code{\link[=orphaaggregate]{orphaaggregate()}} and \code{\link[=orphaprevref]{orphaprevref()}}.
 }
 
 All Orphanet data are distributed under the Creative Commons Attribution
