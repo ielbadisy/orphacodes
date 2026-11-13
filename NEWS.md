@@ -1,4 +1,4 @@
-# orphacodes (development version)
+# orphacodes 1.1.1
 
 * Tables are now built with `basetable::asbasetable()` instead of the
   deprecated `as_basetable()`, so functions no longer warn on every call.
