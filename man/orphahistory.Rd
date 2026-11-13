@@ -5,7 +5,7 @@
 \alias{orphaupdate}
 \title{History and replacement of ORPHAcodes}
 \usage{
-orphahistory(codes, db = NULL)
+orphahistory(codes, db = NULL, releases = NULL)
 
 orphaupdate(codes, db = NULL, follow = c("moved", "all"))
 }
@@ -13,6 +13,10 @@ orphaupdate(codes, db = NULL, follow = c("moved", "all"))
 \item{codes}{ORPHAcodes.}
 
 \item{db}{An \link{orphadb}; defaults to the registered database.}
+
+\item{releases}{Optional list of databases, in chronological order. When
+supplied, history is returned for every release with \code{release} and
+\code{extraction_date} columns, including codes absent from a release.}
 
 \item{follow}{Which associations \code{orphaupdate()} applies: \code{"moved"}
 (deprecated codes only, the safe default) or \code{"all"} (also obsolete
@@ -23,7 +27,10 @@ codes through their "Referred to" suggestion).}
 \code{status}, \code{relation}, \code{target}, \code{target_name}, \code{target_status}.
 \code{orphaupdate()}: a data frame with \code{input}, \code{orphacode} (the updated
 code, or the input when no replacement applies), \code{name}, \code{changed},
-\code{steps}, \code{relation}, \code{status}.
+\code{steps}, \code{relation}, \code{status}, \code{update_issue}, \code{path}, \code{candidates}.
+Branches and cycles stop at the last unambiguous code and are flagged;
+chains have no arbitrary length limit. Only \code{update_issue == "ok"}
+establishes that an active target was reached.
 }
 \description{
 \code{orphahistory()} reports, for each code, its status in the release and

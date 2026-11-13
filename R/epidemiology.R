@@ -13,6 +13,10 @@
 #'   `"classification"` (see [orphagroup()]).
 #' @param by Optional additional grouping columns (for example `"sex"`,
 #'   `"year"`).
+#' @param id Optional patient identifier column. If supplied, count unique
+#'   patients within each rolled-up group and `by` stratum. A patient can
+#'   belong to multiple groups; totals across groups need not be unique
+#'   patients. Missing or blank IDs cause an error. Without `id`, count rows.
 #' @param db An [orphadb]; defaults to the registered database.
 #'
 #' @return A data frame with `group`, `group_name`, the `by` columns and
@@ -24,22 +28,39 @@
 #' orphaaggregate(h, code = "orphacode", level = "disorder", db = orphamini)
 #' orphaaggregate(h, code = "orphacode", level = "specialty", by = "sex", db = orphamini)
 orphaaggregate <- function(data, code, level = c("code", "disorder", "specialty", "classification"),
-                           by = NULL, db = NULL) {
+                           by = NULL, db = NULL, id = NULL) {
   assertdf(data)
   assertcol(data, code, "code")
   db <- getdb(db)
   level <- match.arg(level)
+  if (!is.null(id)) {
+    assertcol(data, id, "id")
+    if (any(is.na(data[[id]]) | !nzchar(trimws(as.character(data[[id]])))))
+      cli::cli_abort("Patient counting requires nonmissing, nonblank identifiers.")
+  }
+  for (column in by) assertcol(data, column, "by")
+  if (!nrow(data)) {
+    out <- cbind(data.frame(group = character(), group_name = character()), data[by])
+    out$n <- integer()
+    return(ascdf(out))
+  }
   x <- orphacode(data[[code]])
   if (level == "code") {
     g <- data.frame(orphacode = x, group = x, stringsAsFactors = FALSE)
     g$group_name <- pick(x, db$disorders, "orphacode", "name")
     tab <- cbind(g[c("group", "group_name")], data[by])
+    patients <- if (!is.null(id)) data[[id]]
   } else {
     gr <- orphagroup(unique(x[!is.na(x)]), db = db, level = level)
     key <- data.frame(orphacode = x, .row = seq_along(x), stringsAsFactors = FALSE)
     m <- basetable::merge(key, gr[c("orphacode", "group", "group_name")], by = "orphacode", all.x = TRUE)
     m <- basetable::orderrows(m, ".row")
     tab <- cbind(m[c("group", "group_name")], data[m$.row, by, drop = FALSE])
+    patients <- if (!is.null(id)) data[[id]][m$.row]
+  }
+  if (!is.null(id)) {
+    keys <- cbind(as.data.frame(tab), .patient = patients)
+    tab <- tab[!duplicated(keys), , drop = FALSE]
   }
   out <- basetable::count(tab, c("group", "group_name", by), sort = TRUE)
   ascdf(out)

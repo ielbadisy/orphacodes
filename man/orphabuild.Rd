@@ -16,7 +16,8 @@ orphabuild(
   version = NULL,
   lang = "en",
   sources = NULL,
-  quiet = FALSE
+  quiet = FALSE,
+  pack_commit = NULL
 )
 }
 \arguments{
@@ -45,6 +46,8 @@ extraction year of the nomenclature file.}
 \code{meta$sources}.}
 
 \item{quiet}{Logical; suppress messages.}
+
+\item{pack_commit}{Optional resolved RD-CODE commit SHA for provenance.}
 }
 \value{
 An \link{orphadb}.

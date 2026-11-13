@@ -71,7 +71,10 @@ orphaversions <- function() {
 }
 
 resolveref <- function(version) {
-  if (identical(version, "latest")) return(list(ref = "master", label = NULL))
+  if (identical(version, "latest")) {
+    res <- ghapi(paste0("repos/", rdcode_repo, "/commits"), list(per_page = 1))
+    return(list(ref = res$sha[1], label = NULL))
+  }
   if (grepl("^[0-9a-f]{7,40}$", version)) return(list(ref = version, label = version))
   if (!grepl("^[0-9]{4}$", version)) {
     cli::cli_abort("{.arg version} must be {.val latest}, a year such as {.val 2025}, or a commit SHA.")
@@ -147,9 +150,12 @@ getfile <- function(url, dest, refresh = FALSE, quiet = TRUE) {
 #'
 #' The nomenclature pack is pinned to a yearly release through the RD-CODE
 #' GitHub history (see [orphaversions()]), so `orphafetch("2025")` returns
-#' the same tables today and in five years. The Orphadata products are only
+#' a historical pack without supplementary current products by default.
+#' Commit SHAs and file checksums are recorded for provenance. The Orphadata products are only
 #' distributed as "current" files; their extraction date is recorded in
-#' `meta` and the resulting database can be frozen with [orphasave()].
+#' `meta$products` for each source and the resulting database can be frozen
+#' with [orphasave()]. Historical requests with supplementary products
+#' require `allow_current = TRUE`; those products are not historical data.
 #'
 #' @param version `"latest"`, a release year such as `"2025"`, or a commit
 #'   SHA of the RD-CODE repository.
@@ -157,7 +163,10 @@ getfile <- function(url, dest, refresh = FALSE, quiet = TRUE) {
 #'   `"fr"`, `"de"`, `"es"`, `"it"`, `"nl"`, `"pt"`, `"pl"`, `"cs"`.
 #' @param include Character vector of optional Orphadata products to add:
 #'   `"xrefs"` (OMIM, MONDO, UMLS, MeSH, MedDRA, GARD alignments),
-#'   `"prevalence"` and `"genes"`. Use `character()` for the pack only.
+#'   `"prevalence"` and `"genes"`. By default all are included for
+#'   `"latest"`, and none for a year or SHA. Use `character()` for pack only.
+#' @param allow_current Explicitly allow current Orphadata products alongside
+#'   a historical pack. Defaults to `FALSE`.
 #' @param classifications Logical; download the 33 classification files
 #'   (needed for [orphaparents()] and friends).
 #' @param refresh Logical; re-download even if cached.
@@ -171,14 +180,21 @@ getfile <- function(url, dest, refresh = FALSE, quiet = TRUE) {
 #' db <- orphafetch("2025")
 #' db
 orphafetch <- function(version = "latest", lang = "en",
-                       include = c("xrefs", "prevalence", "genes"),
+                       include = NULL,
                        classifications = TRUE, refresh = FALSE, use = TRUE,
-                       quiet = FALSE) {
+                       quiet = FALSE, allow_current = FALSE) {
   lang <- tolower(lang)
+  historical <- !identical(version, "latest")
+  if (is.null(include)) include <- if (historical) character() else c("xrefs", "prevalence", "genes")
+  if (historical && length(include) && !isTRUE(allow_current))
+    cli::cli_abort(c("Historical requests cannot silently include current Orphadata products.",
+      "i" = "Use include = character(), or explicitly set allow_current = TRUE and freeze the result with orphasave()."))
+  if (historical && length(include))
+    cli::cli_warn("Supplementary Orphadata products are current, not pinned to {version}; see meta$products.")
   include <- if (length(include)) match.arg(include, c("xrefs", "prevalence", "genes"), several.ok = TRUE) else character()
   label <- if (identical(version, "latest")) NULL else version
-  cdir <- file.path(orphacache(), paste0(label %||% "latest", "-", lang))
-  rds <- file.path(cdir, paste0("orphadb-", paste(c(include, if (classifications) "cl"), collapse = "-"), ".rds"))
+  cdir <- file.path(orphacache(), paste0(label %||% "latest", "-", lang, "-v2"))
+  rds <- file.path(cdir, paste0("orphadb-v2-", paste(c(include, if (classifications) "cl"), collapse = "-"), ".rds"))
   if (file.exists(rds) && !refresh) {
     db <- readRDS(rds)
     if (!quiet) cli::cli_alert_success("Loaded cached release {.strong {db$meta$version}} ({lang}) from {.path {cdir}}.")
@@ -254,7 +270,7 @@ orphafetch <- function(version = "latest", lang = "en",
     nomenclature = files$nomenclature, icd10 = files$icd10, icd11 = files$icd11,
     linearisation = files$linearisation, classifications = files$classifications,
     product1 = files$xrefs, prevalence = files$prevalence, genes = files$genes,
-    version = r$label, lang = lang, sources = src, quiet = quiet
+    version = r$label, lang = lang, sources = src, quiet = quiet, pack_commit = r$ref
   )
   saveRDS(db, rds, compress = "xz")
   if (!quiet) cli::cli_alert_success("Release {.strong {db$meta$version}} cached in {.path {cdir}}.")
@@ -284,6 +300,7 @@ orphafetch <- function(version = "latest", lang = "en",
 #' @param lang Language code stored in `meta`.
 #' @param sources Optional named character vector of source URLs stored in
 #'   `meta$sources`.
+#' @param pack_commit Optional resolved RD-CODE commit SHA for provenance.
 #' @param quiet Logical; suppress messages.
 #'
 #' @return An [orphadb].
@@ -300,7 +317,7 @@ orphabuild <- function(nomenclature, icd10 = NULL, icd11 = NULL,
                        linearisation = NULL, classifications = NULL,
                        product1 = NULL, prevalence = NULL, genes = NULL,
                        version = NULL, lang = "en", sources = NULL,
-                       quiet = FALSE) {
+                       quiet = FALSE, pack_commit = NULL) {
   if (!quiet) cli::cli_alert_info("Parsing nomenclature ...")
   n <- parsenomenclature(nomenclature)
   xr <- list()
@@ -315,7 +332,7 @@ orphabuild <- function(nomenclature, icd10 = NULL, icd11 = NULL,
     xr[[length(xr) + 1L]] <- x[!x$source %in% have, , drop = FALSE]
   }
   xrefs <- rowbind(xr)
-  if (!is.null(xrefs)) xrefs <- ascdf(xrefs[!duplicated(xrefs[c("orphacode", "source", "code")]), ])
+  if (!is.null(xrefs)) xrefs <- ascdf(unique(xrefs))
   cls <- edges <- NULL
   if (length(classifications)) {
     if (!quiet) cli::cli_alert_info("Parsing {length(classifications)} classification{?s} ...")
@@ -334,9 +351,26 @@ orphabuild <- function(nomenclature, icd10 = NULL, icd11 = NULL,
   }
   pv <- if (!is.null(prevalence)) parseprevalence(prevalence)$prevalence
   gn <- if (!is.null(genes)) parsegenes(genes)$genes
+  paths <- c(nomenclature = nomenclature, icd10 = icd10, icd11 = icd11,
+             linearisation = linearisation, classifications = classifications,
+             xrefs = product1, prevalence = prevalence, genes = genes)
+  products <- data.frame(
+    product = names(paths), file = basename(paths),
+    extraction_date = as.Date(vapply(paths, function(path)
+      as.character(xmlmeta(readxml(path))$extraction_date), character(1))),
+    md5 = unname(tools::md5sum(paths)), stringsAsFactors = FALSE)
+  # Named classification vectors receive concatenated names from c().
+  products$product[startsWith(products$product, "classifications")] <- "classifications"
+  products$source <- if (is.null(sources)) rep(NA_character_, nrow(products)) else
+    unname(sources[match(products$product, names(sources))])
+  products$pack_commit <- ifelse(products$product %in% c("xrefs", "prevalence", "genes"),
+                                NA_character_, pack_commit %||% NA_character_)
   meta <- list(
     version = version %||% format(n$meta$extraction_date, "%Y"),
     lang = lang,
+    pack_commit = pack_commit,
+    products = products,
+    supplementary_current = any(products$product %in% c("xrefs", "prevalence", "genes")) && !is.null(sources),
     extraction_date = n$meta$extraction_date,
     db_version = n$meta$db_version,
     orphadata_extraction_date = pmeta$extraction_date,

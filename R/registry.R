@@ -96,7 +96,11 @@ orpharedcap <- function(db = NULL, field = "orphacode", form = "diagnosis",
 #'
 #' @return An object of class `orphaqc`: `data` with the columns
 #'   `.orphacode` (normalised), `.issue`, `.name`, `.replacement` added,
-#'   plus an attribute `summary`. Rows without issue have `.issue == "ok"`.
+#'   plus `.issues` (a list column of all findings), `.duplicate_id` and
+#'   an attribute `summary`. `.issue` retains the primary finding for
+#'   compatibility. `summary_all` counts every finding, so percentages
+#'   can total more than 100. Missing/blank identifiers are flagged as
+#'   `missing_id`, never treated as duplicate patients.
 #' @export
 #' @examples
 #' qc <- orphaqc(orphademo, code = "diagnosis_code", id = "patient_id", db = orphamini)
@@ -109,11 +113,23 @@ orphaqc <- function(data, code, id = NULL, db = NULL, allow_groups = FALSE) {
   lvl <- pick(v$orphacode, db$disorders, "orphacode", "level")
   issue <- v$issue
   if (!isTRUE(allow_groups)) issue[issue == "ok" & lvl %in% "Group of disorders"] <- "group_code"
+  issues <- lapply(issue, function(x) if (x == "ok") character() else x)
+  dup <- rep(FALSE, nrow(data))
   if (!is.null(id)) {
     assertcol(data, id, "id")
-    dup <- duplicated(data[[id]]) | duplicated(data[[id]], fromLast = TRUE)
+    missing_id <- is.na(data[[id]]) | !nzchar(trimws(as.character(data[[id]])))
+    dup <- !missing_id & (duplicated(data[[id]]) | duplicated(data[[id]], fromLast = TRUE))
+    for (i in which(dup)) issues[[i]] <- c(issues[[i]], "duplicate_id")
+    for (i in which(missing_id)) issues[[i]] <- c(issues[[i]], "missing_id")
     issue[dup & issue == "ok"] <- "duplicate_id"
+    issue[missing_id & issue == "ok"] <- "missing_id"
   }
+  # Classification findings are independent of code status.
+  group <- !isTRUE(allow_groups) & lvl %in% "Group of disorders"
+  for (i in which(group)) issues[[i]] <- unique(c(issues[[i]], "group_code"))
+  issues <- lapply(issues, function(x) if (length(x)) x else "ok")
+  data$.issues <- I(issues)
+  data$.duplicate_id <- dup
   data$.orphacode <- v$orphacode
   data$.issue <- issue
   data$.name <- v$name
@@ -122,14 +138,21 @@ orphaqc <- function(data, code, id = NULL, db = NULL, allow_groups = FALSE) {
   s <- basetable::count(data.frame(issue = issue), "issue")
   s$pct <- round(100 * s$n / nrow(data), 1)
   attr(out, "summary") <- ascdf(s)
+  all <- basetable::count(data.frame(issue = as.character(unlist(issues, use.names = FALSE))), "issue")
+  all$pct <- round(100 * all$n / nrow(data), 1)
+  attr(out, "summary_all") <- ascdf(all)
   attr(out, "version") <- db$meta$version
   class(out) <- c("orphaqc", class(out))
   out
 }
 
+#' @rdname orphaqc
+#' @param object An `orphaqc` result.
+#' @param all Logical; summarise all findings instead of primary findings.
+#' @param ... Reserved for additional summary arguments.
 #' @export
-summary.orphaqc <- function(object, ...) {
-  s <- attr(object, "summary")
+summary.orphaqc <- function(object, ..., all = FALSE) {
+  s <- attr(object, if (all) "summary_all" else "summary")
   cli::cli_h2("ORPHAcode quality control ({nrow(object)} rows, Orphanet {attr(object, 'version')})")
   print(s)
   invisible(s)
@@ -158,6 +181,8 @@ print.orphaqc <- function(x, ...) {
 #' @param disease Optional name of a disease-name column used when the
 #'   code is missing or invalid.
 #' @param db An [orphadb]; defaults to the registered database.
+#' @param active_only Logical; refuse unresolved inactive codes by default.
+#'   Set `FALSE` to retain them with an explicit review flag.
 #' @param follow Replacement policy passed to [orphaupdate()].
 #' @param ... Passed to [orphastandardize()] (for example `fuzzy`,
 #'   `max_distance`).
@@ -165,26 +190,37 @@ print.orphaqc <- function(x, ...) {
 #' @return `data` with columns `orphacode` (harmonised), `orphacode_name`,
 #'   `orphacode_source` (`"code"`, `"updated"`, `"name"` or `"none"`),
 #'   `orphacode_level`, `aggregation_code`, `aggregation_name`,
-#'   `preferential_parent`, `preferential_parent_name`.
+#'   `preferential_parent`, `preferential_parent_name`. Audit columns retain
+#'   the original code, replacement path and issue, matching tier and score,
+#'   output status, and `orphacode_review`. Fuzzy matches, inactive outputs
+#'   and unresolved inputs require review. Ambiguous replacements and cycles
+#'   are never overridden by name matching.
 #' @export
 #' @examples
 #' h <- orphaharmonize(orphademo, code = "diagnosis_code", disease = "diagnosis", db = orphamini)
 #' basetable::count(h, "orphacode_source")
 orphaharmonize <- function(data, code, disease = NULL, db = NULL,
-                           follow = c("moved", "all"), ...) {
+                           follow = c("moved", "all"), active_only = TRUE, ...) {
   assertdf(data)
   assertcol(data, code, "code")
   db <- getdb(db)
+  original <- as.character(data[[code]])
   up <- orphaupdate(data[[code]], db = db, follow = follow)
-  valid <- !is.na(up$orphacode) & !is.na(up$name)
+  blocked <- up$update_issue %in% c("ambiguous_replacement", "replacement_cycle")
+  active <- db$disorders$active[match(up$orphacode, db$disorders$orphacode)] %in% TRUE
+  valid <- !is.na(up$orphacode) & !is.na(up$name) & !blocked & (!active_only | active)
+  match_method <- rep(NA_character_, nrow(data))
+  match_score <- rep(NA_real_, nrow(data))
   out <- up$orphacode
   out[!valid] <- NA_character_
   src <- ifelse(valid & up$changed, "updated", ifelse(valid, "code", "none"))
   if (!is.null(disease)) {
     assertcol(data, disease, "disease")
-    todo <- !valid & !is.na(data[[disease]])
+    todo <- !valid & !blocked & !is.na(data[[disease]])
     if (any(todo)) {
-      st <- orphastandardize(data[todo, disease, drop = FALSE], disease = disease, db = db, ...)
+      st <- orphastandardize(data[todo, disease, drop = FALSE], disease = disease, db = db, active_only = active_only, ...)
+      match_method[todo] <- st$orphacode_match
+      match_score[todo] <- st$orphacode_score
       ok <- !is.na(st$orphacode)
       out[which(todo)[ok]] <- st$orphacode[ok]
       src[which(todo)[ok]] <- "name"
@@ -192,6 +228,15 @@ orphaharmonize <- function(data, code, disease = NULL, db = NULL,
   }
   d <- db$disorders
   i <- match(out, d$orphacode)
+  data$orphacode_input <- original
+  data$orphacode_update_issue <- up$update_issue
+  data$orphacode_path <- up$path
+  data$orphacode_candidates <- up$candidates
+  data$orphacode_match <- match_method
+  data$orphacode_score <- match_score
+  data$orphacode_status <- d$status[i]
+  data$orphacode_review <- is.na(out) | !(d$active[i] %in% TRUE) |
+    match_method %in% c("fuzzy", "ambiguous") | grepl("Referred to", up$relation, fixed = TRUE)
   data$orphacode <- out
   data$orphacode_name <- d$name[i]
   data$orphacode_source <- src

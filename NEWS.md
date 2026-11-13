@@ -1,3 +1,25 @@
+# orphacodes 1.2.0
+
+* Historical `orphafetch()` requests now default to the nomenclature pack
+  only. Current supplementary products require `allow_current = TRUE`.
+  Downloads resolve the latest pack to a commit, use a separate cache format,
+  and record per-file extraction dates, checksums and provenance. Save an
+  analysis database with `orphasave()` to retain a mixed-date snapshot.
+* `orphadiff()` adds row-level changes across every database table, including
+  mapping metadata, synonyms, definitions, redirects, hierarchy edges, genes
+  and prevalence. `orphahistory(releases = ...)` reports multiple snapshots.
+* `orphaupdate()` follows arbitrarily long finite chains and reports cycles,
+  ambiguous targets and unresolved endpoints with paths and candidates.
+* `orphaharmonize()` rejects unresolved inactive codes by default, preserves
+  original codes and matching/replacement evidence, and flags review needs.
+  `active_only = FALSE` explicitly retains inactive codes with review flags.
+* `orphaqc()` retains simultaneous findings in `.issues`, adds
+  `summary(qc, all = TRUE)`, and distinguishes missing IDs from duplicates.
+* `orphaaggregate(id = ...)` counts unique patients within each rolled-up
+  group and reporting stratum. Omitting `id` retains row counting.
+* Mapping ingestion preserves rows that differ in relationship or validation
+  metadata instead of dropping them based only on the code pair.
+
 # orphacodes 1.1.1
 
 * Tables are now built with `basetable::asbasetable()` instead of the

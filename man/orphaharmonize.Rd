@@ -10,6 +10,7 @@ orphaharmonize(
   disease = NULL,
   db = NULL,
   follow = c("moved", "all"),
+  active_only = TRUE,
   ...
 )
 }
@@ -25,6 +26,9 @@ code is missing or invalid.}
 
 \item{follow}{Replacement policy passed to \code{\link[=orphaupdate]{orphaupdate()}}.}
 
+\item{active_only}{Logical; refuse unresolved inactive codes by default.
+Set \code{FALSE} to retain them with an explicit review flag.}
+
 \item{...}{Passed to \code{\link[=orphastandardize]{orphastandardize()}} (for example \code{fuzzy},
 \code{max_distance}).}
 }
@@ -32,7 +36,11 @@ code is missing or invalid.}
 \code{data} with columns \code{orphacode} (harmonised), \code{orphacode_name},
 \code{orphacode_source} (\code{"code"}, \code{"updated"}, \code{"name"} or \code{"none"}),
 \code{orphacode_level}, \code{aggregation_code}, \code{aggregation_name},
-\code{preferential_parent}, \code{preferential_parent_name}.
+\code{preferential_parent}, \code{preferential_parent_name}. Audit columns retain
+the original code, replacement path and issue, matching tier and score,
+output status, and \code{orphacode_review}. Fuzzy matches, inactive outputs
+and unresolved inputs require review. Ambiguous replacements and cycles
+are never overridden by name matching.
 }
 \description{
 One-stop harmonisation of a registry: codes are normalised, deprecated

@@ -34,10 +34,17 @@ optionally, the Orphadata products for prevalence, genes and the non-ICD
 alignments), parses it once and caches it:
 
 ```{r, eval = FALSE}
-db <- orphafetch("2025")      # a pinned release
+db <- orphafetch("2025")      # historical pack only
 db <- orphafetch()            # the current files
 orphaversions()               # releases available
 ```
+
+Historical requests exclude current supplementary products by default.
+To explicitly combine them, use `include = c("xrefs", "prevalence", "genes")`
+and `allow_current = TRUE`. This is a mixed-date database, not a historical
+snapshot of all products. `db$meta$products` records each file's extraction
+date, checksum, source URL and pack commit where applicable. Save the database
+with `orphasave()` and retain it with the analysis to reproduce that snapshot.
 
 The package ships `orphamini`, a subset of the 2026 release restricted
 to three classifications (rare cardiac diseases, rare neurological
@@ -120,7 +127,7 @@ d
 ```
 
 Run on the real 2024 and 2025 releases (11,023 and 11,239 entities)
-the summary reads:
+the core entity counts were:
 
 ```
 Orphanet nomenclature 2024 -> 2025
@@ -138,7 +145,22 @@ became obsolete, 21 deprecated (with a "Moved to" replacement), 6 were
 flagged historic, and 6 inactive entities were reactivated. Orphanet
 never removes a code, which is why `removed` is empty; a registry that
 pins its release and runs `orphadiff()` at each upgrade sees exactly
-what its coded data are exposed to.
+what its coded data are exposed to. The current comparison also includes
+`d$tables`: added and removed rows for all tables. A changed mapping relation,
+synonym, definition, classification edge, prevalence record or gene association
+is represented by its previous row under `removed` and its new row under `added`.
+These are changes in the loaded snapshots, which may have different product dates.
+
+For history across releases, pass databases in chronological order:
+
+```{r, eval = FALSE}
+orphahistory(c("166068", "324"), releases = list(old, new))
+```
+
+Replacement chains are followed until an active target or an unresolved condition
+is reached. Branches, cycles, unknown targets and inactive endpoints are reported
+in `update_issue`; `path` retains the traversed codes and `candidates` lists
+ambiguous targets. There is no ten-step cutoff.
 
 ### Other languages
 
@@ -159,6 +181,7 @@ duplicated identifier.
 head(orphademo)
 qc <- orphaqc(orphademo, code = "diagnosis_code", id = "patient_id")
 summary(qc)
+summary(qc, all = TRUE)  # every finding, including simultaneous defects
 ```
 
 `orphaharmonize()` normalises the codes, applies the replacements,
@@ -170,10 +193,33 @@ h <- orphaharmonize(orphademo, code = "diagnosis_code", disease = "diagnosis")
 basetable::count(h, "orphacode_source")
 ```
 
+The output retains `orphacode_input`, `orphacode_update_issue`,
+`orphacode_path`, `orphacode_candidates`, `orphacode_match`,
+`orphacode_score`, `orphacode_status` and `orphacode_review`.
+Unresolved inactive codes are excluded by default. To retain them explicitly,
+set `active_only = FALSE`; they remain flagged for review. A similarity score
+is not a calibrated probability. Ambiguous replacements and cycles cannot be
+overridden automatically by matching the disease name.
+
+QC's `.issue` remains the primary finding; `.issues` holds all findings.
+`summary(qc, all = TRUE)` counts each finding and can therefore exceed 100%.
+Blank and missing patient IDs are flagged separately from duplicates.
+
 ## Counting and reference prevalence
 
 ```{r}
 orphaaggregate(h, code = "orphacode", level = "specialty", by = "sex")
+```
+
+By default these are row counts. With `id = "patient_id"`, aggregation
+counts each patient once per rolled-up group and `by` stratum, even if the
+patient has repeated records or multiple codes in that group. Missing or blank
+IDs cause an error rather than being silently counted as one patient. A patient
+may belong to multiple classifications, so totals across groups can exceed
+the number of unique patients.
+
+```{r}
+orphaaggregate(h, code = "orphacode", level = "specialty", id = "patient_id")
 ```
 
 `orphaprevref()` returns the point prevalence class Orphanet publishes

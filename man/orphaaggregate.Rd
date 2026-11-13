@@ -9,7 +9,8 @@ orphaaggregate(
   code,
   level = c("code", "disorder", "specialty", "classification"),
   by = NULL,
-  db = NULL
+  db = NULL,
+  id = NULL
 )
 }
 \arguments{
@@ -24,6 +25,11 @@ orphaaggregate(
 \code{"year"}).}
 
 \item{db}{An \link{orphadb}; defaults to the registered database.}
+
+\item{id}{Optional patient identifier column. If supplied, count unique
+patients within each rolled-up group and \code{by} stratum. A patient can
+belong to multiple groups; totals across groups need not be unique
+patients. Missing or blank IDs cause an error. Without \code{id}, count rows.}
 }
 \value{
 A data frame with \code{group}, \code{group_name}, the \code{by} columns and

@@ -96,6 +96,37 @@ orphaaggregate(h, code = "orphacode", level = "specialty")
 #> # 1 more rows
 ```
 
+## Reproducibility and review
+
+`orphafetch("2025")` now downloads only the historical nomenclature
+pack. Supplementary Orphadata products are distributed as current files.
+Mixing these with a historical pack requires an explicit choice:
+
+``` r
+db <- orphafetch("2025", include = c("xrefs", "prevalence", "genes"),
+                allow_current = TRUE)
+db$meta$products  # individual extraction dates, checksums and source URLs
+orphasave(db, "analysis-database.rds")  # retain this snapshot with the analysis
+```
+
+`orphadiff(old, new)$tables` reports added/removed rows across all
+database tables, including mapping metadata, synonyms, definitions and
+hierarchy edges. `orphahistory(codes, releases = list(old, new))`
+returns history in the supplied release order.
+
+`orphaharmonize()` keeps original codes, replacement paths, matching
+tiers and scores. It refuses unresolved inactive codes by default and
+marks fuzzy matches and unresolved records with `orphacode_review`.
+Branching replacements and cycles require review and are never resolved
+by selecting the first target.
+
+QC retains every finding in `.issues`; use `summary(qc, all = TRUE)` to
+count all findings, including duplicate identifiers on rows with other
+defects. `orphaaggregate(..., id = "patient_id")` counts unique patients
+per group and reporting stratum. Without `id`, it counts rows. Patients
+in multiple groups may contribute to each group; group totals are not a
+unique-patient total.
+
 ## Data source
 
 Orphanet nomenclature files for coding (RD-CODE repository) and
