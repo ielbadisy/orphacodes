@@ -172,8 +172,10 @@ parsexrefs <- function(path) {
 
 normsource <- function(x) {
   x <- toupper(gsub("[^A-Za-z0-9]", "", x))
-  c(ICD10 = "ICD10", ICD11 = "ICD11", OMIM = "OMIM", MONDO = "MONDO",
-    UMLS = "UMLS", MESH = "MeSH", MEDDRA = "MedDRA", GARD = "GARD")[x] %||% x
+  known <- c(ICD10 = "ICD10", ICD11 = "ICD11", OMIM = "OMIM", MONDO = "MONDO",
+    UMLS = "UMLS", MESH = "MeSH", MEDDRA = "MedDRA", GARD = "GARD")[x]
+  known[is.na(known)] <- x[is.na(known)]
+  unname(known)
 }
 
 parseclassification <- function(path) {

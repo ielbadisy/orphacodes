@@ -7,11 +7,12 @@
 orphafetch(
   version = "latest",
   lang = "en",
-  include = c("xrefs", "prevalence", "genes"),
+  include = NULL,
   classifications = TRUE,
   refresh = FALSE,
   use = TRUE,
-  quiet = FALSE
+  quiet = FALSE,
+  allow_current = FALSE
 )
 }
 \arguments{
@@ -23,7 +24,8 @@ SHA of the RD-CODE repository.}
 
 \item{include}{Character vector of optional Orphadata products to add:
 \code{"xrefs"} (OMIM, MONDO, UMLS, MeSH, MedDRA, GARD alignments),
-\code{"prevalence"} and \code{"genes"}. Use \code{character()} for the pack only.}
+\code{"prevalence"} and \code{"genes"}. By default all are included for
+\code{"latest"}, and none for a year or SHA. Use \code{character()} for pack only.}
 
 \item{classifications}{Logical; download the 33 classification files
 (needed for \code{\link[=orphaparents]{orphaparents()}} and friends).}
@@ -33,6 +35,9 @@ SHA of the RD-CODE repository.}
 \item{use}{Logical; register the database with \code{\link[=orphause]{orphause()}}.}
 
 \item{quiet}{Logical; suppress progress messages.}
+
+\item{allow_current}{Explicitly allow current Orphadata products alongside
+a historical pack. Defaults to \code{FALSE}.}
 }
 \value{
 An \link{orphadb}.
@@ -47,9 +52,12 @@ The result is an \link{orphadb} registered as the default database.
 \details{
 The nomenclature pack is pinned to a yearly release through the RD-CODE
 GitHub history (see \code{\link[=orphaversions]{orphaversions()}}), so \code{orphafetch("2025")} returns
-the same tables today and in five years. The Orphadata products are only
+a historical pack without supplementary current products by default.
+Commit SHAs and file checksums are recorded for provenance. The Orphadata products are only
 distributed as "current" files; their extraction date is recorded in
-\code{meta} and the resulting database can be frozen with \code{\link[=orphasave]{orphasave()}}.
+\code{meta$products} for each source and the resulting database can be frozen
+with \code{\link[=orphasave]{orphasave()}}. Historical requests with supplementary products
+require \code{allow_current = TRUE}; those products are not historical data.
 }
 \examples{
 \dontshow{if (interactive()) withAutoprint(\{ # examplesIf}

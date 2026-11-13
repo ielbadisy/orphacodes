@@ -2,9 +2,12 @@
 % Please edit documentation in R/registry.R
 \name{orphaqc}
 \alias{orphaqc}
+\alias{summary.orphaqc}
 \title{Quality control of ORPHAcodes in a registry}
 \usage{
 orphaqc(data, code, id = NULL, db = NULL, allow_groups = FALSE)
+
+\method{summary}{orphaqc}(object, ..., all = FALSE)
 }
 \arguments{
 \item{data}{A data frame.}
@@ -18,11 +21,21 @@ are reported).}
 
 \item{allow_groups}{Logical; if \code{FALSE} (default) group-level codes are
 flagged as \code{"group_code"}.}
+
+\item{object}{An \code{orphaqc} result.}
+
+\item{...}{Reserved for additional summary arguments.}
+
+\item{all}{Logical; summarise all findings instead of primary findings.}
 }
 \value{
 An object of class \code{orphaqc}: \code{data} with the columns
 \code{.orphacode} (normalised), \code{.issue}, \code{.name}, \code{.replacement} added,
-plus an attribute \code{summary}. Rows without issue have \code{.issue == "ok"}.
+plus \code{.issues} (a list column of all findings), \code{.duplicate_id} and
+an attribute \code{summary}. \code{.issue} retains the primary finding for
+compatibility. \code{summary_all} counts every finding, so percentages
+can total more than 100. Missing/blank identifiers are flagged as
+\code{missing_id}, never treated as duplicate patients.
 }
 \description{
 Audits a registry data frame: code format, presence in the release,

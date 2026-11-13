@@ -12,7 +12,11 @@ orphadiff(old, new)
 \value{
 An object of class \code{orphadiff}: a list of data frames \code{added},
 \code{removed}, \code{renamed}, \code{status}, \code{level}, \code{parent}, each keyed by
-\code{orphacode}, plus \code{meta} with both versions.
+\code{orphacode}, plus \code{tables} and \code{meta} with both versions. \code{tables}
+contains \code{added} and \code{removed} rows for every data table, including
+all disorder fields, synonyms, mappings, redirects, classifications,
+edges, prevalence and genes. Modified rows appear on both sides;
+row order and duplicate identical rows do not constitute a change.
 }
 \description{
 Lists what changed between two \link{orphadb} objects (typically two yearly

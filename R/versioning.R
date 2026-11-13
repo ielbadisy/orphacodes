@@ -14,16 +14,32 @@
 #'   (deprecated codes only, the safe default) or `"all"` (also obsolete
 #'   codes through their "Referred to" suggestion).
 #'
+#' @param releases Optional list of databases, in chronological order. When
+#'   supplied, history is returned for every release with `release` and
+#'   `extraction_date` columns, including codes absent from a release.
 #' @return `orphahistory()`: a data frame with `orphacode`, `name`,
 #'   `status`, `relation`, `target`, `target_name`, `target_status`.
 #'   `orphaupdate()`: a data frame with `input`, `orphacode` (the updated
 #'   code, or the input when no replacement applies), `name`, `changed`,
-#'   `steps`, `relation`, `status`.
+#'   `steps`, `relation`, `status`, `update_issue`, `path`, `candidates`.
+#'   Branches and cycles stop at the last unambiguous code and are flagged;
+#'   chains have no arbitrary length limit. Only `update_issue == "ok"`
+#'   establishes that an active target was reached.
 #' @export
 #' @examples
 #' orphahistory(c("166068", "324"), db = orphamini)
 #' orphaupdate(c("166068", "324"), db = orphamini)
-orphahistory <- function(codes, db = NULL) {
+orphahistory <- function(codes, db = NULL, releases = NULL) {
+  if (!is.null(releases)) {
+    if (!length(releases) || !all(vapply(releases, isdb, logical(1))))
+      cli::cli_abort("{.arg releases} must be a nonempty list of databases in chronological order.")
+    return(rowbind(lapply(releases, function(release) {
+      h <- orphahistory(codes, db = release)
+      h$release <- rep(release$meta$version %||% NA_character_, nrow(h))
+      h$extraction_date <- rep(release$meta$extraction_date %||% as.Date(NA), nrow(h))
+      h
+    })))
+  }
   db <- getdb(db)
   code <- orphacode(codes)
   d <- db$disorders
@@ -45,22 +61,46 @@ orphaupdate <- function(codes, db = NULL, follow = c("moved", "all")) {
   r <- db$redirects
   if (follow == "moved") r <- r[r$relation == "Moved to", , drop = FALSE]
   d <- db$disorders
-  cur <- code
-  steps <- integer(length(code))
-  rel <- rep(NA_character_, length(code))
-  for (k in seq_len(10L)) {
-    j <- match(cur, r$orphacode)
-    hit <- !is.na(j) & !d$active[match(cur, d$orphacode)] %in% TRUE
-    if (!any(hit)) break
-    rel[hit & is.na(rel)] <- r$relation[j[hit & is.na(rel)]]
-    cur[hit] <- r$target[j[hit]]
-    steps[hit] <- steps[hit] + 1L
-  }
-  i <- match(cur, d$orphacode)
+  # Resolve each chain independently; never select an arbitrary branch.
+  keys <- unique(code)
+  resolved <- lapply(keys, function(start) {
+    cur <- start; path <- start; steps <- 0L; relations <- character()
+    candidates <- character()
+    issue <- if (is.na(start)) "invalid_format" else "unknown"
+    while (!is.na(cur)) {
+      i <- match(cur, d$orphacode)
+      if (!is.na(i) && isTRUE(d$active[i])) { issue <- "ok"; break }
+      targets <- unique(r$target[r$orphacode %in% cur])
+      targets <- targets[!is.na(targets) & nzchar(targets)]
+      if (!length(targets)) {
+        issue <- if (is.na(i)) "unknown" else "inactive"
+        break
+      }
+      if (length(targets) > 1L) {
+        candidates <- targets; issue <- "ambiguous_replacement"; break
+      }
+      if (targets %in% path) { issue <- "replacement_cycle"; break }
+      relations <- c(relations, unique(r$relation[r$orphacode %in% cur & r$target %in% targets]))
+      cur <- targets; path <- c(path, cur); steps <- steps + 1L
+    }
+    data.frame(orphacode = cur, steps = steps,
+      relation = if (length(relations)) paste(unique(relations), collapse = "; ") else NA_character_,
+      update_issue = issue, path = paste(path, collapse = " -> "),
+      candidates = if (length(candidates)) paste(candidates, collapse = ";") else NA_character_,
+      stringsAsFactors = FALSE)
+  })
+  z <- if (length(resolved)) do.call(rbind, resolved) else
+    emptydf(orphacode = "character", steps = "integer", relation = "character",
+            update_issue = "character", path = "character", candidates = "character")
+  z <- z[match(code, keys), , drop = FALSE]
+  missing <- is.na(codes) | !nzchar(trimws(as.character(codes)))
+  z$update_issue[missing] <- "missing"
+  i <- match(z$orphacode, d$orphacode)
   ascdf(data.frame(
-    input = as.character(codes), orphacode = cur, name = d$name[i],
-    changed = !is.na(code) & cur != code, steps = steps, relation = rel,
-    status = d$status[i], stringsAsFactors = FALSE
+    input = as.character(codes), orphacode = z$orphacode, name = d$name[i],
+    changed = !is.na(code) & z$orphacode != code, steps = z$steps, relation = z$relation,
+    status = d$status[i], update_issue = z$update_issue, path = z$path,
+    candidates = z$candidates, stringsAsFactors = FALSE
   ))
 }
 
@@ -76,7 +116,11 @@ orphaupdate <- function(codes, db = NULL, follow = c("moved", "all")) {
 #'
 #' @return An object of class `orphadiff`: a list of data frames `added`,
 #'   `removed`, `renamed`, `status`, `level`, `parent`, each keyed by
-#'   `orphacode`, plus `meta` with both versions.
+#'   `orphacode`, plus `tables` and `meta` with both versions. `tables`
+#'   contains `added` and `removed` rows for every data table, including
+#'   all disorder fields, synonyms, mappings, redirects, classifications,
+#'   edges, prevalence and genes. Modified rows appear on both sides;
+#'   row order and duplicate identical rows do not constitute a change.
 #' @export
 #' @examplesIf interactive()
 #' d <- orphadiff(orphafetch("2024"), orphafetch("2025"))
@@ -97,10 +141,16 @@ orphadiff <- function(old, new) {
     names(out)[names(out) == "name_new"] <- if (col == "name") "name_new" else "name"
     ascdf(out)
   }
+  table_names <- c("disorders", "synonyms", "redirects", "xrefs", "classifications",
+                   "edges", "prevalence", "genes")
+  tables <- stats::setNames(lapply(table_names, function(nm) {
+    tablediff(old[[nm]], new[[nm]])
+  }), table_names)
   structure(list(
     added = ascdf(added), removed = ascdf(removed),
     renamed = changed("name"), status = changed("status"),
     level = changed("level"), parent = changed("preferential_parent"),
+    tables = tables,
     meta = list(old = old$meta$version, new = new$meta$version,
                 n_old = nrow(a), n_new = nrow(b))
   ), class = "orphadiff")
@@ -115,10 +165,34 @@ print.orphadiff <- function(x, ...) {
     "{nrow(x$status)} status change{?s}", "{nrow(x$level)} level change{?s}",
     "{nrow(x$parent)} preferential parent change{?s}"
   ))
+  if (length(x$tables)) {
+    for (nm in names(x$tables)) {
+      z <- x$tables[[nm]]
+      if (nrow(z$added) + nrow(z$removed))
+        cli::cli_text("{nm}: {nrow(z$added)} added/changed rows, {nrow(z$removed)} removed/previous rows")
+    }
+  }
   if (nrow(x$status)) {
     s <- basetable::count(x$status, c("status_old", "status_new"))
     cli::cli_text("")
     print(s)
   }
   invisible(x)
+}
+
+# Row-set comparison retaining all fields, including mapping metadata.
+tablediff <- function(old, new) {
+  columns <- union(names(old), names(new))
+  align <- function(x) {
+    if (is.null(x)) x <- data.frame()
+    for (nm in setdiff(columns, names(x))) x[[nm]] <- rep(NA, nrow(x))
+    unique(as.data.frame(x)[columns])
+  }
+  a <- align(old); b <- align(new)
+  difference <- function(x, y) {
+    both <- rbind(y, x)
+    keep <- !duplicated(both)[nrow(y) + seq_len(nrow(x))]
+    ascdf(x[keep, , drop = FALSE])
+  }
+  list(added = difference(b, a), removed = difference(a, b))
 }
