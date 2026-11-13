@@ -79,3 +79,9 @@ test_that("qualifiers such as familial or hereditary are not ignored", {
   expect_false(any(r$orphacode_name %in% c("Familial dysautonomia", "Hereditary orotic aciduria") &
                      r$orphacode_score == 1, na.rm = TRUE))
 })
+
+test_that("returned tables are built without deprecation warnings", {
+  expect_no_warning(l <- orphalookup(c("ORPHA:324", "1"), db = orphamini))
+  expect_s3_class(l, "basetable")
+  expect_no_warning(orphavalidate(c("ORPHA:324", "abc"), db = orphamini))
+})

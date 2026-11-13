@@ -1,7 +1,7 @@
 Package: orphacodes
 Title: Rare Disease Nomenclature, Coding, Harmonisation and Registry
     Interoperability with 'Orphanet'
-Version: 1.1.0
+Version: 1.1.0.9000
 Authors@R: c(
     person(
       given = "Imad",
@@ -31,7 +31,7 @@ BugReports: https://github.com/ielbadisy/orphacodes/issues
 Depends:
     R (>= 4.1.0)
 Imports:
-    basetable,
+    basetable (>= 1.4.5),
     cli,
     jsonlite,
     stats,
