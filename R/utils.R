@@ -87,5 +87,5 @@ pick <- function(key, table, by, value) {
 # the "basetable" class, printed compactly).
 ascdf <- function(df) {
   rownames(df) <- NULL
-  basetable::as_basetable(df)
+  basetable::asbasetable(df)
 }
